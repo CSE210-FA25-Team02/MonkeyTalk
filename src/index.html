@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Translate between natural language text and emoji expressions using AI technology">
+    <title>Emoji Speak Translator</title>
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components/translator.css">
+</head>
+<body>
+    <header>
+        <h1>Emoji Speak Translator</h1>
+        <p>Transform your words into emoji expressions and back again</p>
+    </header>
+
+    <main>
+        <section class="translation-controls">
+            <fieldset>
+                <legend>Translation Mode</legend>
+                <label>
+                    <input type="radio" name="mode" value="text-to-emoji" checked>
+                    <span>Text to Emoji</span>
+                </label>
+                <label>
+                    <input type="radio" name="mode" value="emoji-to-text">
+                    <span>Emoji to Text</span>
+                </label>
+            </fieldset>
+        </section>
+
+        <section class="translation-area">
+            <article class="input-section">
+                <label for="input-text">Enter your text:</label>
+                <textarea 
+                    id="input-text" 
+                    placeholder="Type your message here..."
+                    rows="4"
+                    aria-describedby="input-help"
+                ></textarea>
+                <small id="input-help">Type your text and see it translated in real-time</small>
+            </article>
+
+            <article class="output-section">
+                <label for="output-text">Translation:</label>
+                <textarea 
+                    id="output-text" 
+                    readonly 
+                    rows="4"
+                    aria-describedby="output-help"
+                ></textarea>
+                <small id="output-help">Your translation will appear here</small>
+                <button id="copy-button" type="button" aria-label="Copy translation to clipboard">
+                    📋 Copy
+                </button>
+            </article>
+        </section>
+
+        <section class="translation-history">
+            <h2>Recent Translations</h2>
+            <ul id="history-list" role="list">
+                <!-- History items will be added dynamically -->
+            </ul>
+            <button id="clear-history" type="button">Clear History</button>
+        </section>
+
+        <section class="help-section">
+            <details>
+                <summary>How to use the translator</summary>
+                <ul>
+                    <li><strong>Text to Emoji:</strong> Type natural language like "I'm happy today" to get emoji expressions like "😊✨"</li>
+                    <li><strong>Emoji to Text:</strong> Type emoji sequences like "🎉🎂🎁" to get readable text like "celebration with cake and gift"</li>
+                    <li><strong>Real-time:</strong> Translations happen automatically as you type</li>
+                    <li><strong>Copy:</strong> Click the copy button to copy translations to your clipboard</li>
+                    <li><strong>History:</strong> Your recent translations are saved for easy access</li>
+                </ul>
+            </details>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Emoji Speak Translator. Built with vanilla web technologies.</p>
+    </footer>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
