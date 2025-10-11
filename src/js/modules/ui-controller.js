@@ -1,0 +1,423 @@
+/**
+ * UI Controller for Emoji Speak Translator
+ * Handles DOM manipulation and user interactions
+ */
+
+import { textToEmoji, emojiToText, containsEmojis, getTranslationStats } from './translator.js';
+import { createAIService } from './ai-service.js';
+
+export class UIController {
+  constructor() {
+    this.aiService = createAIService('openai');
+    this.translationHistory = this.loadHistory();
+    this.isTranslating = false;
+    this.debounceTimer = null;
+    
+    this.initializeElements();
+    this.bindEvents();
+    this.updateUI();
+  }
+
+  /**
+   * Initialize DOM elements
+   */
+  initializeElements() {
+    this.elements = {
+      modeRadios: document.querySelectorAll('input[name="mode"]'),
+      inputText: document.getElementById('input-text'),
+      outputText: document.getElementById('output-text'),
+      copyButton: document.getElementById('copy-button'),
+      historyList: document.getElementById('history-list'),
+      clearHistoryButton: document.getElementById('clear-history'),
+      helpSection: document.querySelector('.help-section')
+    };
+  }
+
+  /**
+   * Bind event listeners
+   */
+  bindEvents() {
+    // Mode change events
+    this.elements.modeRadios.forEach(radio => {
+      radio.addEventListener('change', () => this.handleModeChange());
+    });
+
+    // Input text events
+    this.elements.inputText.addEventListener('input', (e) => {
+      this.handleInputChange(e.target.value);
+    });
+
+    // Copy button event
+    this.elements.copyButton.addEventListener('click', () => {
+      this.handleCopyClick();
+    });
+
+    // Clear history event
+    this.elements.clearHistoryButton.addEventListener('click', () => {
+      this.handleClearHistory();
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      this.handleKeyboardShortcuts(e);
+    });
+  }
+
+  /**
+   * Handles mode change between text-to-emoji and emoji-to-text
+   */
+  handleModeChange() {
+    const selectedMode = document.querySelector('input[name="mode"]:checked').value;
+    
+    // Update placeholder text
+    if (selectedMode === 'text-to-emoji') {
+      this.elements.inputText.placeholder = 'Type your message here...';
+      this.elements.outputText.placeholder = 'Your emoji translation will appear here';
+    } else {
+      this.elements.inputText.placeholder = 'Enter emoji expressions...';
+      this.elements.outputText.placeholder = 'Your text translation will appear here';
+    }
+
+    // Clear current translation
+    this.elements.outputText.value = '';
+    
+    // Re-translate current input if any
+    if (this.elements.inputText.value.trim()) {
+      this.handleInputChange(this.elements.inputText.value);
+    }
+  }
+
+  /**
+   * Handles input text changes with debouncing
+   * @param {string} value - Input value
+   */
+  handleInputChange(value) {
+    // Clear previous timer
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+
+    // Set new timer for debounced translation
+    this.debounceTimer = setTimeout(() => {
+      this.translateText(value);
+    }, 300); // 300ms debounce
+  }
+
+  /**
+   * Translates text using AI service or fallback
+   * @param {string} text - Text to translate
+   */
+  async translateText(text) {
+    if (!text.trim()) {
+      this.elements.outputText.value = '';
+      return;
+    }
+
+    const selectedMode = document.querySelector('input[name="mode"]:checked').value;
+    
+    try {
+      this.setLoadingState(true);
+      
+      let translation;
+      
+      if (this.aiService.getStatus().available) {
+        // Use AI service
+        if (selectedMode === 'text-to-emoji') {
+          translation = await this.aiService.translateTextToEmoji(text);
+        } else {
+          translation = await this.aiService.translateEmojiToText(text);
+        }
+      } else {
+        // Use fallback translation
+        if (selectedMode === 'text-to-emoji') {
+          translation = textToEmoji(text);
+        } else {
+          translation = emojiToText(text);
+        }
+      }
+
+      this.elements.outputText.value = translation;
+      
+      // Add to history
+      this.addToHistory(text, translation, selectedMode);
+      
+    } catch (error) {
+      console.error('Translation error:', error);
+      this.elements.outputText.value = 'Translation failed. Please try again.';
+    } finally {
+      this.setLoadingState(false);
+    }
+  }
+
+  /**
+   * Handles copy button click
+   */
+  async handleCopyClick() {
+    const text = this.elements.outputText.value;
+    
+    if (!text) {
+      this.showNotification('Nothing to copy', 'error');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      this.showNotification('Copied to clipboard!', 'success');
+      
+      // Visual feedback
+      this.elements.copyButton.textContent = '✅ Copied';
+      setTimeout(() => {
+        this.elements.copyButton.textContent = '📋 Copy';
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Copy failed:', error);
+      this.showNotification('Failed to copy', 'error');
+    }
+  }
+
+  /**
+   * Handles clear history button click
+   */
+  handleClearHistory() {
+    if (confirm('Are you sure you want to clear all translation history?')) {
+      this.translationHistory = [];
+      this.saveHistory();
+      this.updateHistoryDisplay();
+      this.showNotification('History cleared', 'success');
+    }
+  }
+
+  /**
+   * Handles keyboard shortcuts
+   * @param {KeyboardEvent} e - Keyboard event
+   */
+  handleKeyboardShortcuts(e) {
+    // Ctrl/Cmd + Enter to translate
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      this.translateText(this.elements.inputText.value);
+    }
+    
+    // Ctrl/Cmd + C to copy (when output is focused)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c' && document.activeElement === this.elements.outputText) {
+      this.handleCopyClick();
+    }
+    
+    // Escape to clear input
+    if (e.key === 'Escape') {
+      this.elements.inputText.value = '';
+      this.elements.outputText.value = '';
+      this.elements.inputText.focus();
+    }
+  }
+
+  /**
+   * Sets loading state for UI elements
+   * @param {boolean} isLoading - Loading state
+   */
+  setLoadingState(isLoading) {
+    this.isTranslating = isLoading;
+    
+    if (isLoading) {
+      this.elements.outputText.classList.add('loading');
+      this.elements.outputText.value = 'Translating...';
+    } else {
+      this.elements.outputText.classList.remove('loading');
+    }
+  }
+
+  /**
+   * Shows notification to user
+   * @param {string} message - Notification message
+   * @param {string} type - Notification type (success, error, info)
+   */
+  showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('aside');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    // Style the notification
+    Object.assign(notification.style, {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      padding: '12px 20px',
+      borderRadius: '8px',
+      color: 'white',
+      fontWeight: '500',
+      zIndex: '1000',
+      transform: 'translateX(100%)',
+      transition: 'transform 0.3s ease-in-out',
+      backgroundColor: type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'
+    });
+    
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+      notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      notification.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 300);
+    }, 3000);
+  }
+
+  /**
+   * Adds translation to history
+   * @param {string} input - Input text
+   * @param {string} output - Output text
+   * @param {string} mode - Translation mode
+   */
+  addToHistory(input, output, mode) {
+    const historyItem = {
+      id: Date.now(),
+      input,
+      output,
+      mode,
+      timestamp: new Date().toISOString()
+    };
+    
+    this.translationHistory.unshift(historyItem);
+    
+    // Keep only last 50 items
+    if (this.translationHistory.length > 50) {
+      this.translationHistory = this.translationHistory.slice(0, 50);
+    }
+    
+    this.saveHistory();
+    this.updateHistoryDisplay();
+  }
+
+  /**
+   * Updates history display
+   */
+  updateHistoryDisplay() {
+    this.elements.historyList.innerHTML = '';
+    
+    if (this.translationHistory.length === 0) {
+      const emptyItem = document.createElement('li');
+      emptyItem.className = 'history-item';
+      emptyItem.innerHTML = '<p>No translations yet. Start typing to see your history!</p>';
+      this.elements.historyList.appendChild(emptyItem);
+      return;
+    }
+    
+    this.translationHistory.forEach(item => {
+      const historyItem = document.createElement('li');
+      historyItem.className = 'history-item';
+      historyItem.innerHTML = `
+        <article class="history-content">
+          <section class="history-text">
+            <p class="history-input">${this.escapeHtml(item.input)}</p>
+            <p class="history-output">${this.escapeHtml(item.output)}</p>
+          </section>
+          <aside class="history-meta">
+            <time datetime="${item.timestamp}">${new Date(item.timestamp).toLocaleTimeString()}</time>
+          </aside>
+        </article>
+      `;
+      
+      // Add click handler to restore translation
+      historyItem.addEventListener('click', () => {
+        this.restoreFromHistory(item);
+      });
+      
+      this.elements.historyList.appendChild(historyItem);
+    });
+  }
+
+  /**
+   * Restores translation from history
+   * @param {object} item - History item
+   */
+  restoreFromHistory(item) {
+    // Set mode
+    const modeRadio = document.querySelector(`input[name="mode"][value="${item.mode}"]`);
+    if (modeRadio) {
+      modeRadio.checked = true;
+      this.handleModeChange();
+    }
+    
+    // Set input and output
+    this.elements.inputText.value = item.input;
+    this.elements.outputText.value = item.output;
+    
+    // Focus input
+    this.elements.inputText.focus();
+    
+    this.showNotification('Translation restored from history', 'success');
+  }
+
+  /**
+   * Escapes HTML to prevent XSS
+   * @param {string} text - Text to escape
+   * @returns {string} Escaped text
+   */
+  escapeHtml(text) {
+    const span = document.createElement('span');
+    span.textContent = text;
+    return span.innerHTML;
+  }
+
+  /**
+   * Loads translation history from localStorage
+   * @returns {Array} History array
+   */
+  loadHistory() {
+    try {
+      const saved = localStorage.getItem('emoji_translator_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Failed to load history:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Saves translation history to localStorage
+   */
+  saveHistory() {
+    try {
+      localStorage.setItem('emoji_translator_history', JSON.stringify(this.translationHistory));
+    } catch (error) {
+      console.error('Failed to save history:', error);
+    }
+  }
+
+  /**
+   * Updates UI based on current state
+   */
+  updateUI() {
+    this.updateHistoryDisplay();
+    
+    // Check AI service status
+    const status = this.aiService.getStatus();
+    if (!status.available) {
+      this.showNotification('AI service not configured. Using fallback translation.', 'info');
+    }
+  }
+
+  /**
+   * Sets AI service API key
+   * @param {string} apiKey - API key
+   */
+  setApiKey(apiKey) {
+    this.aiService.setApiKey(apiKey);
+    this.showNotification('API key configured successfully!', 'success');
+  }
+
+  /**
+   * Gets current AI service status
+   * @returns {object} Service status
+   */
+  getServiceStatus() {
+    return this.aiService.getStatus();
+  }
+}
