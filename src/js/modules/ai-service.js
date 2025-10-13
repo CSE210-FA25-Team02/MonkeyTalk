@@ -3,24 +3,16 @@
  * Handles API calls to external translation services
  */
 
-// Configuration for different AI services
+import inContextLearningPrompt from './iclprompt.js';
+import { GEMINI_API_KEY, API_CONFIG } from '../constants.js';
+
+// Configuration for Gemini service only
 const AI_SERVICES = {
-  openai: {
-    name: 'OpenAI GPT',
-    endpoint: 'https://api.openai.com/v1/chat/completions',
-    model: 'gpt-3.5-turbo',
-    maxTokens: 150
-  },
-  huggingface: {
-    name: 'Hugging Face',
-    endpoint: 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium',
-    model: 'microsoft/DialoGPT-medium'
-  },
-  // Fallback service using a free API
-  freeapi: {
-    name: 'Free Translation API',
-    endpoint: 'https://api.mymemory.translated.net/get',
-    fallback: true
+  gemini: {
+    name: 'Google Gemini',
+    endpoint: API_CONFIG.GEMINI_ENDPOINT,
+    model: API_CONFIG.GEMINI_MODEL,
+    maxTokens: API_CONFIG.MAX_TOKENS
   }
 };
 
@@ -28,29 +20,33 @@ const AI_SERVICES = {
  * AI Service class for handling translations
  */
 export class AIService {
-  constructor(serviceName = 'openai') {
-    this.serviceName = serviceName;
-    this.service = AI_SERVICES[serviceName];
+  constructor() {
+    this.serviceName = 'gemini';
+    this.service = AI_SERVICES.gemini;
     this.apiKey = this.getApiKey();
     this.isAvailable = this.checkAvailability();
   }
 
   /**
-   * Gets API key from environment or local storage
+   * Gets API key from constants file
    * @returns {string|null} API key
    */
   getApiKey() {
-    // In a real app, this would come from environment variables
-    // For demo purposes, we'll use a placeholder
-    return localStorage.getItem('ai_api_key') || null;
+    // Check if API key is set in constants
+    if (GEMINI_API_KEY && GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY_HERE') {
+      return GEMINI_API_KEY;
+    }
+    
+    // Fallback to localStorage for development
+    return localStorage.getItem('gemini_api_key') || null;
   }
 
   /**
-   * Checks if the AI service is available
+   * Checks if the Gemini service is available
    * @returns {boolean} Service availability
    */
   checkAvailability() {
-    return this.apiKey !== null || this.service.fallback;
+    return this.apiKey !== null;
   }
 
   /**
@@ -63,18 +59,15 @@ export class AIService {
       throw new Error('AI service not available. Please configure API key.');
     }
 
-    const prompt = `Convert the following text into emoji expressions. Use relevant emojis that represent the emotions, objects, and actions mentioned. Keep it concise and expressive.
-
-Text: "${text}"
-
-Emoji expression:`;
+    // Use the in-context learning prompt and replace the placeholder with user input
+    const prompt = inContextLearningPrompt.replace('[USER_INPUT_HERE]', text);
 
     try {
       const response = await this.callAI(prompt);
       return this.extractEmojiFromResponse(response);
     } catch (error) {
       console.error('AI translation error:', error);
-      throw new Error('Failed to translate text to emoji');
+      throw new Error(`Failed to translate text to emoji: ${error.message}`);
     }
   }
 
@@ -88,171 +81,148 @@ Emoji expression:`;
       throw new Error('AI service not available. Please configure API key.');
     }
 
-    const prompt = `Convert the following emoji expression into natural language text. Describe what the emojis represent in a clear, readable way.
-
-Emoji expression: "${emojiText}"
-
-Natural language:`;
+    // Use the in-context learning prompt and replace the placeholder with user input
+    const prompt = inContextLearningPrompt.replace('[USER_INPUT_HERE]', emojiText);
 
     try {
       const response = await this.callAI(prompt);
       return this.extractTextFromResponse(response);
     } catch (error) {
       console.error('AI translation error:', error);
-      throw new Error('Failed to translate emoji to text');
+      throw new Error(`Failed to translate emoji to text: ${error.message}`);
     }
   }
 
   /**
-   * Makes API call to the configured AI service
+   * Makes API call to Gemini
    * @param {string} prompt - Input prompt
    * @returns {Promise<string>} AI response
    */
   async callAI(prompt) {
-    if (this.serviceName === 'openai') {
-      return await this.callOpenAI(prompt);
-    } else if (this.serviceName === 'huggingface') {
-      return await this.callHuggingFace(prompt);
-    } else {
-      return await this.callFreeAPI(prompt);
-    }
+    return await this.callGemini(prompt);
   }
 
+
   /**
-   * Calls OpenAI API
+   * Calls Google Gemini API
    * @param {string} prompt - Input prompt
    * @returns {Promise<string>} AI response
    */
-  async callOpenAI(prompt) {
-    const response = await fetch(this.service.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify({
-        model: this.service.model,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: this.service.maxTokens,
-        temperature: 0.7
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+  async callGemini(prompt) {
+    console.log('Calling Gemini API with prompt:', prompt);
+    console.log('API Key (first 10 chars):', this.apiKey ? this.apiKey.substring(0, 10) + '...' : 'No API key');
+    console.log('Endpoint:', this.service.endpoint);
+    
+    // Validate API key exists
+    if (!this.apiKey) {
+      throw new Error('No Gemini API key provided');
     }
+    
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            {
+              text: prompt
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: API_CONFIG.TEMPERATURE,
+        maxOutputTokens: API_CONFIG.MAX_TOKENS,
+        topP: API_CONFIG.TOP_P,
+        topK: API_CONFIG.TOP_K
+      }
+    };
 
-    const data = await response.json();
-    return data.choices[0].message.content.trim();
-  }
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
-  /**
-   * Calls Hugging Face API
-   * @param {string} prompt - Input prompt
-   * @returns {Promise<string>} AI response
-   */
-  async callHuggingFace(prompt) {
-    const response = await fetch(this.service.endpoint, {
+    const response = await fetch(`${this.service.endpoint}?key=${this.apiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_length: 100,
-          temperature: 0.7
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
 
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      throw new Error(`Hugging Face API error: ${response.status}`);
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        console.error('Error response:', errorData);
+        errorMessage += ` - ${errorData.error?.message || errorData.message || 'Unknown error'}`;
+      } catch (e) {
+        const errorText = await response.text();
+        console.error('Error text:', errorText);
+        errorMessage += ` - ${errorText}`;
+      }
+      throw new Error(`Gemini API error: ${errorMessage}`);
     }
 
     const data = await response.json();
-    return data[0].generated_text || data[0].text || '';
-  }
-
-  /**
-   * Calls free translation API as fallback
-   * @param {string} prompt - Input prompt
-   * @returns {Promise<string>} AI response
-   */
-  async callFreeAPI(prompt) {
-    // This is a mock implementation for demo purposes
-    // In a real app, you might use a different free service
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Simple rule-based translation as fallback
-        const fallbackResponse = this.getFallbackTranslation(prompt);
-        resolve(fallbackResponse);
-      }, 1000);
-    });
-  }
-
-  /**
-   * Provides fallback translation when AI is not available
-   * @param {string} prompt - Input prompt
-   * @returns {string} Fallback translation
-   */
-  getFallbackTranslation(prompt) {
-    const lowerPrompt = prompt.toLowerCase();
+    console.log('Response data:', data);
     
-    if (lowerPrompt.includes('emoji expression:')) {
-      // Text to emoji fallback
-      const text = prompt.split('Emoji expression:')[0].trim();
-      return this.simpleTextToEmoji(text);
-    } else if (lowerPrompt.includes('natural language:')) {
-      // Emoji to text fallback
-      const emojiText = prompt.split('Natural language:')[0].trim();
-      return this.simpleEmojiToText(emojiText);
+    // Check for different possible response structures
+    if (!data.candidates || !data.candidates[0]) {
+      console.error('No candidates found in response:', data);
+      throw new Error('No candidates in Gemini API response');
+    }
+
+    const candidate = data.candidates[0];
+    console.log('First candidate:', candidate);
+    
+    // Check if the response was blocked or filtered
+    if (candidate.finishReason === 'SAFETY' || candidate.finishReason === 'RECITATION') {
+      throw new Error(`Response blocked by safety filters: ${candidate.finishReason}`);
     }
     
-    return 'Translation not available';
+    // Check for content in different possible structures
+    let result = null;
+    
+    // Handle the actual Gemini response structure
+    if (candidate.content && candidate.content.parts && candidate.content.parts[0]) {
+      result = candidate.content.parts[0].text;
+    } else if (candidate.content && candidate.content.role === 'model') {
+      // This is the structure we're seeing: {"content":{"role":"model"},"finishReason":"MAX_TOKENS"}
+      // The content might be in a different field or the response was truncated
+      console.log('Found model role content, checking for text in other fields...');
+      
+      // Check if there's text in the candidate itself
+      if (candidate.text) {
+        result = candidate.text;
+      } else if (candidate.output) {
+        result = candidate.output;
+      } else {
+        // If finishReason is MAX_TOKENS, the response was cut off
+        if (candidate.finishReason === 'MAX_TOKENS') {
+          throw new Error('Response was truncated due to token limit. Try reducing the prompt length or increasing maxOutputTokens.');
+        }
+        throw new Error(`Content found but no text extracted. Candidate: ${JSON.stringify(candidate)}`);
+      }
+    } else if (candidate.text) {
+      result = candidate.text;
+    } else if (candidate.output) {
+      result = candidate.output;
+    } else {
+      console.error('Unexpected response structure:', candidate);
+      throw new Error(`Invalid response format from Gemini API. Candidate structure: ${JSON.stringify(candidate)}`);
+    }
+
+    if (!result) {
+      throw new Error('No text content found in Gemini API response');
+    }
+
+    const trimmedResult = result.trim();
+    console.log('Extracted result:', trimmedResult);
+    return trimmedResult;
   }
 
-  /**
-   * Simple text to emoji fallback
-   * @param {string} text - Input text
-   * @returns {string} Emoji expression
-   */
-  simpleTextToEmoji(text) {
-    const emojiMap = {
-      'happy': '😊', 'joy': '😄', 'love': '❤️', 'sad': '😢',
-      'angry': '😠', 'surprised': '😲', 'party': '🎉',
-      'cake': '🎂', 'gift': '🎁', 'star': '⭐', 'sun': '☀️'
-    };
-    
-    const words = text.toLowerCase().split(' ');
-    const emojis = words.map(word => emojiMap[word] || '').filter(emoji => emoji);
-    
-    return emojis.length > 0 ? emojis.join(' ') : '😊';
-  }
 
-  /**
-   * Simple emoji to text fallback
-   * @param {string} emojiText - Input emoji text
-   * @returns {string} Text description
-   */
-  simpleEmojiToText(emojiText) {
-    const textMap = {
-      '😊': 'happy', '😄': 'joyful', '❤️': 'love', '😢': 'sad',
-      '😠': 'angry', '😲': 'surprised', '🎉': 'celebration',
-      '🎂': 'cake', '🎁': 'gift', '⭐': 'star', '☀️': 'sun'
-    };
-    
-    const emojis = emojiText.split(' ').filter(char => char.length > 0);
-    const descriptions = emojis.map(emoji => textMap[emoji] || emoji).filter(desc => desc);
-    
-    return descriptions.length > 0 ? descriptions.join(', ') : 'emoji expression';
-  }
+
 
   /**
    * Extracts emoji from AI response
@@ -292,7 +262,7 @@ Natural language:`;
    */
   setApiKey(key) {
     this.apiKey = key;
-    localStorage.setItem('ai_api_key', key);
+    localStorage.setItem('gemini_api_key', key);
     this.isAvailable = this.checkAvailability();
   }
 
@@ -302,31 +272,29 @@ Natural language:`;
    */
   getStatus() {
     return {
-      service: this.serviceName,
+      service: 'gemini',
       available: this.isAvailable,
-      hasApiKey: this.apiKey !== null,
-      fallback: this.service.fallback
+      hasApiKey: this.apiKey !== null
     };
   }
 }
 
 /**
- * Creates a new AI service instance
- * @param {string} serviceName - Name of the service to use
+ * Creates a new AI service instance (Gemini only)
  * @returns {AIService} AI service instance
  */
-export function createAIService(serviceName = 'openai') {
-  return new AIService(serviceName);
+export function createAIService() {
+  return new AIService();
 }
 
 /**
- * Gets available AI services
+ * Gets available AI services (Gemini only)
  * @returns {Array} List of available services
  */
 export function getAvailableServices() {
-  return Object.keys(AI_SERVICES).map(key => ({
-    key,
-    name: AI_SERVICES[key].name,
-    fallback: AI_SERVICES[key].fallback || false
-  }));
+  return [{
+    key: 'gemini',
+    name: 'Google Gemini',
+    fallback: false
+  }];
 }

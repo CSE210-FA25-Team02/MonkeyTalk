@@ -8,10 +8,9 @@ import { createAIService } from './ai-service.js';
 
 export class UIController {
   constructor() {
-    this.aiService = createAIService('openai');
+    this.aiService = createAIService();
     this.translationHistory = this.loadHistory();
     this.isTranslating = false;
-    this.debounceTimer = null;
     
     this.initializeElements();
     this.bindEvents();
@@ -26,6 +25,7 @@ export class UIController {
       modeRadios: document.querySelectorAll('input[name="mode"]'),
       inputText: document.getElementById('input-text'),
       outputText: document.getElementById('output-text'),
+      translateButton: document.getElementById('translate-button'),
       copyButton: document.getElementById('copy-button'),
       historyList: document.getElementById('history-list'),
       clearHistoryButton: document.getElementById('clear-history'),
@@ -42,9 +42,9 @@ export class UIController {
       radio.addEventListener('change', () => this.handleModeChange());
     });
 
-    // Input text events
-    this.elements.inputText.addEventListener('input', (e) => {
-      this.handleInputChange(e.target.value);
+    // Translate button event
+    this.elements.translateButton.addEventListener('click', () => {
+      this.handleTranslateClick();
     });
 
     // Copy button event
@@ -80,27 +80,18 @@ export class UIController {
 
     // Clear current translation
     this.elements.outputText.value = '';
-    
-    // Re-translate current input if any
-    if (this.elements.inputText.value.trim()) {
-      this.handleInputChange(this.elements.inputText.value);
-    }
   }
 
   /**
-   * Handles input text changes with debouncing
-   * @param {string} value - Input value
+   * Handles translate button click
    */
-  handleInputChange(value) {
-    // Clear previous timer
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
+  handleTranslateClick() {
+    const text = this.elements.inputText.value.trim();
+    if (!text) {
+      this.showNotification('Please enter some text to translate', 'error');
+      return;
     }
-
-    // Set new timer for debounced translation
-    this.debounceTimer = setTimeout(() => {
-      this.translateText(value);
-    }, 300); // 300ms debounce
+    this.translateText(text);
   }
 
   /**
@@ -121,19 +112,14 @@ export class UIController {
       let translation;
       
       if (this.aiService.getStatus().available) {
-        // Use AI service
+        // Use Gemini service
         if (selectedMode === 'text-to-emoji') {
           translation = await this.aiService.translateTextToEmoji(text);
         } else {
           translation = await this.aiService.translateEmojiToText(text);
         }
       } else {
-        // Use fallback translation
-        if (selectedMode === 'text-to-emoji') {
-          translation = textToEmoji(text);
-        } else {
-          translation = emojiToText(text);
-        }
+        throw new Error('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.');
       }
 
       this.elements.outputText.value = translation;
@@ -143,7 +129,7 @@ export class UIController {
       
     } catch (error) {
       console.error('Translation error:', error);
-      this.elements.outputText.value = 'Translation failed. Please try again.';
+      this.elements.outputText.value = 'Translation failed. Please check your API key configuration.';
     } finally {
       this.setLoadingState(false);
     }
@@ -196,7 +182,7 @@ export class UIController {
     // Ctrl/Cmd + Enter to translate
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
-      this.translateText(this.elements.inputText.value);
+      this.handleTranslateClick();
     }
     
     // Ctrl/Cmd + C to copy (when output is focused)
@@ -220,9 +206,13 @@ export class UIController {
     this.isTranslating = isLoading;
     
     if (isLoading) {
+      this.elements.translateButton.disabled = true;
+      this.elements.translateButton.textContent = '⏳ Translating...';
       this.elements.outputText.classList.add('loading');
       this.elements.outputText.value = 'Translating...';
     } else {
+      this.elements.translateButton.disabled = false;
+      this.elements.translateButton.textContent = '🔄 Translate';
       this.elements.outputText.classList.remove('loading');
     }
   }
@@ -397,10 +387,10 @@ export class UIController {
   updateUI() {
     this.updateHistoryDisplay();
     
-    // Check AI service status
+    // Check Gemini service status
     const status = this.aiService.getStatus();
     if (!status.available) {
-      this.showNotification('AI service not configured. Using fallback translation.', 'info');
+      this.showNotification('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.', 'error');
     }
   }
 

@@ -145,6 +145,24 @@ button:disabled {
   transform: none;
 }
 
+/* Translate Button */
+#translate-button {
+  background-color: var(--accent-color);
+  margin-top: var(--space-sm);
+  width: 100%;
+  justify-content: center;
+  font-weight: 600;
+}
+
+#translate-button:hover {
+  background-color: var(--accent-hover);
+}
+
+#translate-button:disabled {
+  background-color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 /* Utility Classes */
 .sr-only {
   position: absolute;
