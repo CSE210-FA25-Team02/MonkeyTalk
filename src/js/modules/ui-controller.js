@@ -5,6 +5,7 @@
 
 import { textToEmoji, emojiToText, containsEmojis, getTranslationStats } from './translator.js';
 import { createAIService } from './ai-service.js';
+import { buttonSound, monkeySound } from './sounds.js';
 
 export class UIController {
   constructor() {
@@ -67,6 +68,8 @@ export class UIController {
    * Handles mode change between text-to-emoji and emoji-to-text
    */
   handleModeChange() {
+    buttonSound.currentTime = 0;
+    buttonSound.play().catch(err => console.error(err));
     const selectedMode = document.querySelector('input[name="mode"]:checked').value;
     
     // Update placeholder text
@@ -86,6 +89,8 @@ export class UIController {
    * Handles translate button click
    */
   handleTranslateClick() {
+    buttonSound.currentTime = 0;
+    buttonSound.play().catch(err => console.error(err));
     const text = this.elements.inputText.value.trim();
     if (!text) {
       this.showNotification('Please enter some text to translate', 'error');
@@ -126,11 +131,14 @@ export class UIController {
       
       // Add to history
       this.addToHistory(text, translation, selectedMode);
+
       
     } catch (error) {
       console.error('Translation error:', error);
       this.elements.outputText.value = 'Translation failed. Please check your API key configuration.';
     } finally {
+      monkeySound.currentTime = 0;
+      monkeySound.play();
       this.setLoadingState(false);
     }
   }
@@ -139,6 +147,8 @@ export class UIController {
    * Handles copy button click
    */
   async handleCopyClick() {
+    buttonSound.currentTime = 0;
+    buttonSound.play().catch(err => console.error(err));
     const text = this.elements.outputText.value;
     
     if (!text) {
@@ -166,6 +176,8 @@ export class UIController {
    * Handles clear history button click
    */
   handleClearHistory() {
+    buttonSound.currentTime = 0;
+    buttonSound.play().catch(err => console.error(err));
     if (confirm('Are you sure you want to clear all translation history?')) {
       this.translationHistory = [];
       this.saveHistory();
