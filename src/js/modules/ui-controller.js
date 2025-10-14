@@ -5,6 +5,8 @@
 
 import { textToEmoji, emojiToText, containsEmojis, getTranslationStats } from './translator.js';
 import { createAIService } from './ai-service.js';
+import { buttonSound, monkeySound } from './sounds.js';
+import { TeasingEngine } from './teasing-engine.js';
 
 export class UIController {
   constructor() {
@@ -112,12 +114,14 @@ export class UIController {
     const selectedMode = document.querySelector('input[name="mode"]:checked').value;
     
     try {
-      // PRE-TRANSLATION: Show teasing message
+      // PRE-TRANSLATION: Show teasing message and keep it until result
       const preTeaseMessage = this.teasingEngine.getPreTranslationTease();
       this.elements.outputText.value = preTeaseMessage;
       this.elements.outputText.classList.add('teasing-pre');
       
       // Wait a bit to show the tease
+      // TODO: Make this delay to be actually waiting for the gemini to do the translation?
+      // TODO: if we want to do content based teasing, we need to call gemini here separately and then show the teasing message based on the content.
       await this.teasingEngine.delay(1200);
       
       this.setLoadingState(true);
@@ -135,10 +139,12 @@ export class UIController {
         throw new Error('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.');
       }
 
-      // Remove teasing style and show result
-      this.elements.outputText.classList.remove('teasing-pre');
+      // Show result and then remove teasing style
       this.elements.outputText.value = translation;
+      this.elements.outputText.classList.remove('teasing-pre');
       
+
+      // TODO: We can impl contentg based teasing
       // POST-TRANSLATION: Show reaction after a brief delay
       await this.teasingEngine.delay(500);
       const reactionMessage = this.teasingEngine.getPostTranslationReaction();
@@ -236,12 +242,11 @@ export class UIController {
     if (isLoading) {
       this.elements.translateButton.disabled = true;
       this.elements.translateButton.textContent = '⏳ Translating...';
-      this.elements.outputText.classList.add('loading');
-      this.elements.outputText.value = 'Translating...';
+      // Keep teasing message visible; do not override output text or add loading spinner
     } else {
       this.elements.translateButton.disabled = false;
       this.elements.translateButton.textContent = '🔄 Translate';
-      this.elements.outputText.classList.remove('loading');
+      // Do not modify output text here; result or teasing cleanup is handled elsewhere
     }
   }
 
