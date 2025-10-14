@@ -33,6 +33,23 @@ export class UIController {
       clearHistoryButton: document.getElementById('clear-history'),
       helpSection: document.querySelector('.help-section')
     };
+    // Monkey loader
+    this.elements.monkeyLoader = document.createElement('main');
+    this.elements.monkeyLoader.className = 'monkey-loader';
+    this.elements.monkeyLoader.innerHTML = `
+      <img src="./assets/monkey.gif" alt="Monkey loading" />
+      <p>Translating...</p>
+    `;
+    Object.assign(this.elements.monkeyLoader.style, {
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      textAlign: 'center',
+      display: 'none',
+      zIndex: '1000'
+    });
+    document.body.appendChild(this.elements.monkeyLoader);
   }
 
   /**
@@ -130,6 +147,9 @@ export class UIController {
 
       this.elements.outputText.value = translation;
 
+      // Hide monkey loader
+      this.setLoadingState(false);
+
       // Trigger falling money effect (optimized for FPS)
       startMoneyRain({
         numBills: 150,
@@ -225,18 +245,25 @@ export class UIController {
    */
   setLoadingState(isLoading) {
     this.isTranslating = isLoading;
-    
+
     if (isLoading) {
       this.elements.translateButton.disabled = true;
       this.elements.translateButton.textContent = '⏳ Translating...';
       this.elements.outputText.classList.add('loading');
       this.elements.outputText.value = 'Translating...';
+
+      // Show monkey loader
+      this.elements.monkeyLoader.style.display = 'block';
     } else {
       this.elements.translateButton.disabled = false;
       this.elements.translateButton.textContent = '🔄 Translate';
       this.elements.outputText.classList.remove('loading');
+
+      // Hide monkey loader
+      this.elements.monkeyLoader.style.display = 'none';
     }
   }
+
 
   /**
    * Shows notification to user
