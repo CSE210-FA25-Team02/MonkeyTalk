@@ -5,13 +5,13 @@
 
 import { textToEmoji, emojiToText, containsEmojis, getTranslationStats } from './translator.js';
 import { createAIService } from './ai-service.js';
-import { buttonSound, monkeySound } from './sounds.js';
 
 export class UIController {
   constructor() {
     this.aiService = createAIService();
     this.translationHistory = this.loadHistory();
     this.isTranslating = false;
+    this.teasingEngine = new TeasingEngine();
     
     this.initializeElements();
     this.bindEvents();
@@ -100,7 +100,7 @@ export class UIController {
   }
 
   /**
-   * Translates text using AI service or fallback
+   * Translates text using AI service with teasing elements
    * @param {string} text - Text to translate
    */
   async translateText(text) {
@@ -112,6 +112,14 @@ export class UIController {
     const selectedMode = document.querySelector('input[name="mode"]:checked').value;
     
     try {
+      // PRE-TRANSLATION: Show teasing message
+      const preTeaseMessage = this.teasingEngine.getPreTranslationTease();
+      this.elements.outputText.value = preTeaseMessage;
+      this.elements.outputText.classList.add('teasing-pre');
+      
+      // Wait a bit to show the tease
+      await this.teasingEngine.delay(1200);
+      
       this.setLoadingState(true);
       
       let translation;
@@ -127,7 +135,14 @@ export class UIController {
         throw new Error('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.');
       }
 
+      // Remove teasing style and show result
+      this.elements.outputText.classList.remove('teasing-pre');
       this.elements.outputText.value = translation;
+      
+      // POST-TRANSLATION: Show reaction after a brief delay
+      await this.teasingEngine.delay(500);
+      const reactionMessage = this.teasingEngine.getPostTranslationReaction();
+      this.showTeasingNotification(reactionMessage);
       
       // Add to history
       this.addToHistory(text, translation, selectedMode);
@@ -135,6 +150,7 @@ export class UIController {
       
     } catch (error) {
       console.error('Translation error:', error);
+      this.elements.outputText.classList.remove('teasing-pre');
       this.elements.outputText.value = 'Translation failed. Please check your API key configuration.';
     } finally {
       monkeySound.currentTime = 0;
@@ -269,6 +285,51 @@ export class UIController {
         document.body.removeChild(notification);
       }, 300);
     }, 3000);
+  }
+
+  /**
+   * Shows teasing notification with special styling
+   * @param {string} message - Teasing message
+   */
+  showTeasingNotification(message) {
+    const notification = document.createElement('aside');
+    notification.className = 'teasing-notification';
+    notification.textContent = message;
+    
+    // Special styling for teasing notifications
+    Object.assign(notification.style, {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      padding: '12px 20px',
+      borderRadius: '12px',
+      color: 'white',
+      fontWeight: '600',
+      fontSize: '14px',
+      zIndex: '1000',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+      transform: 'translateX(100%) scale(0.8)',
+      transition: 'all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+      maxWidth: '300px'
+    });
+    
+    document.body.appendChild(notification);
+    
+    // Animate in with bounce effect
+    setTimeout(() => {
+      notification.style.transform = 'translateX(0) scale(1)';
+    }, 100);
+    
+    // Remove after 4 seconds (longer for teasing messages)
+    setTimeout(() => {
+      notification.style.transform = 'translateX(100%) scale(0.8)';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          document.body.removeChild(notification);
+        }
+      }, 400);
+    }, 4000);
   }
 
   /**
