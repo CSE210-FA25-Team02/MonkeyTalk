@@ -3,9 +3,10 @@
  * Handles DOM manipulation and user interactions
  */
 
-import { textToEmoji, emojiToText, containsEmojis, getTranslationStats } from './translator.js';
 import { createAIService } from './ai-service.js';
 import { buttonSound, monkeySound } from './sounds.js';
+import { startMoneyRain } from './dollar-rain.js';
+
 
 export class UIController {
   constructor() {
@@ -128,6 +129,14 @@ export class UIController {
       }
 
       this.elements.outputText.value = translation;
+
+      // Trigger falling money effect (optimized for FPS)
+      startMoneyRain({
+        numBills: 150,
+        duration: 8000,
+        imageSize: 50,
+        imageUrl: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4b8.png'
+      });
       
       // Add to history
       this.addToHistory(text, translation, selectedMode);
