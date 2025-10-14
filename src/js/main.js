@@ -4,7 +4,6 @@
  */
 
 import { UIController } from './modules/ui-controller.js';
-import { createAIService, getAvailableServices } from './modules/ai-service.js';
 
 class EmojiTranslatorApp {
   constructor() {
@@ -39,8 +38,7 @@ class EmojiTranslatorApp {
       // Initialize UI controller
       this.uiController = new UIController();
       
-      // Set up service configuration
-      this.setupServiceConfiguration();
+      // Gemini API is configured via environment variable
       
       // Add global error handling
       this.setupErrorHandling();
@@ -56,94 +54,6 @@ class EmojiTranslatorApp {
     }
   }
 
-  /**
-   * Sets up service configuration UI
-   */
-  setupServiceConfiguration() {
-    // Create service configuration section
-    const configSection = document.createElement('section');
-    configSection.className = 'service-config';
-    configSection.innerHTML = `
-      <details>
-        <summary>AI Service Configuration</summary>
-        <article class="config-content">
-          <p>Configure your AI service for better translations:</p>
-          <fieldset class="service-selection">
-            <legend>Service Selection</legend>
-            <label for="service-select">Service:</label>
-            <select id="service-select">
-              <option value="openai">OpenAI GPT</option>
-              <option value="huggingface">Hugging Face</option>
-              <option value="freeapi">Free API (Fallback)</option>
-            </select>
-          </fieldset>
-          <fieldset class="api-key-input">
-            <legend>API Configuration</legend>
-            <label for="api-key">API Key (optional):</label>
-            <input type="password" id="api-key" placeholder="Enter your API key">
-            <button id="save-api-key" type="button">Save</button>
-          </fieldset>
-          <aside class="service-status">
-            <span id="service-status">Checking service status...</span>
-          </aside>
-        </article>
-      </details>
-    `;
-
-    // Insert before the help section
-    const helpSection = document.querySelector('.help-section');
-    helpSection.parentNode.insertBefore(configSection, helpSection);
-
-    // Bind configuration events
-    this.bindConfigurationEvents();
-  }
-
-  /**
-   * Binds configuration events
-   */
-  bindConfigurationEvents() {
-    const serviceSelect = document.getElementById('service-select');
-    const apiKeyInput = document.getElementById('api-key');
-    const saveButton = document.getElementById('save-api-key');
-    const statusSpan = document.getElementById('service-status');
-
-    // Service selection change
-    serviceSelect.addEventListener('change', () => {
-      const serviceName = serviceSelect.value;
-      this.uiController.aiService = createAIService(serviceName);
-      this.updateServiceStatus();
-    });
-
-    // Save API key
-    saveButton.addEventListener('click', () => {
-      const apiKey = apiKeyInput.value.trim();
-      if (apiKey) {
-        this.uiController.setApiKey(apiKey);
-        this.updateServiceStatus();
-      } else {
-        this.uiController.showNotification('Please enter a valid API key', 'error');
-      }
-    });
-
-    // Update status on load
-    this.updateServiceStatus();
-  }
-
-  /**
-   * Updates service status display
-   */
-  updateServiceStatus() {
-    const statusSpan = document.getElementById('service-status');
-    const status = this.uiController.getServiceStatus();
-    
-    if (status.available) {
-      statusSpan.textContent = `✅ ${status.service} service is available`;
-      statusSpan.className = 'status-success';
-    } else {
-      statusSpan.textContent = `⚠️ ${status.service} service requires API key`;
-      statusSpan.className = 'status-warning';
-    }
-  }
 
   /**
    * Sets up global error handling
