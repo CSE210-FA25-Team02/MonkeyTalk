@@ -3,7 +3,7 @@
  * Handles API calls to external translation services
  */
 
-import inContextLearningPrompt from './iclprompt.js';
+import inContextLearningPrompt, { buildTeasingAnalysisPrompt } from './iclprompt.js';
 import { GEMINI_API_KEYS, API_CONFIG } from '../constants.js';
 
 // Configuration for Gemini service only
@@ -119,6 +119,7 @@ export class AIService {
   async callGemini(prompt) {
     const apiKey = this.getNextApiKey();
     const endpoint = `${this.service.endpoint}?key=${apiKey}`;
+    console.log(`Calling Gemini API with key index ${this.currentApiKeyIndex}`);
 
     const requestBody = {
       contents: [
@@ -164,10 +165,85 @@ export class AIService {
     }
 
     if (candidate.content && candidate.content.parts && candidate.content.parts[0]) {
-      return candidate.content.parts[0].text.trim();
+      result = candidate.content.parts[0].text;
+    } else if (candidate.content && candidate.content.role === 'model') {
+      // This is the structure we're seeing: {"content":{"role":"model"},"finishReason":"MAX_TOKENS"}
+      // The content might be in a different field or the response was truncated
+      console.log('Found model role content, checking for text in other fields...');
+      
+      // Check if there's text in the candidate itself
+      if (candidate.text) {
+        result = candidate.text;
+      } else if (candidate.output) {
+        result = candidate.output;
+      } else {
+        // If finishReason is MAX_TOKENS, the response was cut off
+        if (candidate.finishReason === 'MAX_TOKENS') {
+          throw new Error('Response was truncated due to token limit. Try reducing the prompt length or increasing maxOutputTokens.');
+        }
+        throw new Error(`Content found but no text extracted. Candidate: ${JSON.stringify(candidate)}`);
+      }
+    } else if (candidate.text) {
+      result = candidate.text;
+    } else if (candidate.output) {
+      result = candidate.output;
+    } else {
+      console.error('Unexpected response structure:', candidate);
+      throw new Error(`Invalid response format from Gemini API. Candidate structure: ${JSON.stringify(candidate)}`);
     }
 
-    throw new Error('No text content found in Gemini API response');
+    if (!result) {
+      throw new Error('No text content found in Gemini API response');
+    }
+
+    const trimmedResult = result.trim();
+    console.log('Extracted result:', trimmedResult);
+    return trimmedResult;
+  }
+
+  /**
+   * Gets lightweight teasing analysis for input to drive teasing UX
+   * Returns a small JSON object with fields used by the UI.
+   * Never throws; on errors it returns a safe fallback object.
+   * @param {string} input - user input
+   * @param {string} mode - 'text-to-emoji' | 'emoji-to-text'
+   * @returns {Promise<{valid:boolean, category:string, tone:string, shortTease:string, reason?:string}>}
+   */
+  async getTeasingAnalysis(input, mode) {
+    if (this.isAvailable) {
+      return { valid: true, category: 'general', tone: 'neutral', shortTease: this.defaultTeaseForMode(mode) };
+    }
+
+    const analysisPrompt = buildTeasingAnalysisPrompt(input, mode);
+
+    try {
+      const raw = await this.callAI(analysisPrompt);
+      // Try to parse JSON from the model response; fall back on defaults
+      const jsonStart = raw.indexOf('{');
+      const jsonEnd = raw.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
+        // Basic normalization
+        return {
+          valid: typeof parsed.valid === 'boolean' ? parsed.valid : true,
+          category: parsed.category || 'general',
+          tone: parsed.tone || 'neutral',
+          shortTease: parsed.shortTease || this.defaultTeaseForMode(mode),
+          reason: parsed.reason
+        };
+      }
+    } catch (e) {
+      // Swallow errors, UI will use defaults
+    }
+    return { valid: true, category: 'general', tone: 'neutral', shortTease: this.defaultTeaseForMode(mode) };
+  }
+
+  /**
+   * Default tease used when analysis isn't available
+   */
+  defaultTeaseForMode(mode) {
+    if (mode === 'emoji-to-text') return '🐒 Charging monkey energy to read emojis...';
+    return '🐒 Charging monkey energy to craft emojis...';
   }
 
 

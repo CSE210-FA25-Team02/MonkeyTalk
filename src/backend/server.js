@@ -44,6 +44,22 @@ app.post('/translate', async (req, res) => {
   }
 });
 
+app.post('/teasing-analysis', async (req, res) => {
+  const { input, mode } = req.body;
+
+  if (!input || !mode) {
+    return res.status(400).json({ error: 'Missing input or mode' });
+  }
+
+  try {
+    const analysis = await aiService.getTeasingAnalysis(input, mode);
+    res.json(analysis);
+  } catch (error) {
+    console.error('Teasing analysis error:', error);
+    res.status(500).json({ error: 'Failed to get teasing analysis' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
 });
