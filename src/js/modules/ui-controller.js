@@ -11,7 +11,6 @@ import { startMoneyRain } from './dollar-rain.js';
 export class UIController {
   constructor() {
     this.aiService = createAIService();
-    this.translationHistory = this.loadHistory();
     this.isTranslating = false;
     
     this.initializeElements();
@@ -29,16 +28,17 @@ export class UIController {
       outputText: document.getElementById('output-text'),
       translateButton: document.getElementById('translate-button'),
       copyButton: document.getElementById('copy-button'),
-      historyList: document.getElementById('history-list'),
-      clearHistoryButton: document.getElementById('clear-history'),
       helpSection: document.querySelector('.help-section')
     };
     // Monkey loader
     this.elements.monkeyLoader = document.createElement('main');
     this.elements.monkeyLoader.className = 'monkey-loader';
     this.elements.monkeyLoader.innerHTML = `
-      <img src="./assets/monkey.gif" alt="Monkey loading" />
-      <p>Translating...</p>
+      <img src="./assets/monkey.gif" style="
+        translate: -50% -50%;
+        position: absolute;
+        top: 50%; 
+        alt="Monkey loading" />
     `;
     Object.assign(this.elements.monkeyLoader.style, {
       position: 'absolute',
@@ -47,7 +47,10 @@ export class UIController {
       transform: 'translate(-50%, -50%)',
       textAlign: 'center',
       display: 'none',
-      zIndex: '1000'
+      zIndex: '1000',
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(255, 255, 255, 0.5)'
     });
     document.body.appendChild(this.elements.monkeyLoader);
   }
@@ -69,11 +72,6 @@ export class UIController {
     // Copy button event
     this.elements.copyButton.addEventListener('click', () => {
       this.handleCopyClick();
-    });
-
-    // Clear history event
-    this.elements.clearHistoryButton.addEventListener('click', () => {
-      this.handleClearHistory();
     });
 
     // Keyboard shortcuts
@@ -153,14 +151,10 @@ export class UIController {
       // Trigger falling money effect (optimized for FPS)
       startMoneyRain({
         numBills: 150,
-        duration: 8000,
+        duration: 3000,
         imageSize: 50,
         imageUrl: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4b8.png'
       });
-      
-      // Add to history
-      this.addToHistory(text, translation, selectedMode);
-
       
     } catch (error) {
       console.error('Translation error:', error);
@@ -198,20 +192,6 @@ export class UIController {
     } catch (error) {
       console.error('Copy failed:', error);
       this.showNotification('Failed to copy', 'error');
-    }
-  }
-
-  /**
-   * Handles clear history button click
-   */
-  handleClearHistory() {
-    buttonSound.currentTime = 0;
-    buttonSound.play().catch(err => console.error(err));
-    if (confirm('Are you sure you want to clear all translation history?')) {
-      this.translationHistory = [];
-      this.saveHistory();
-      this.updateHistoryDisplay();
-      this.showNotification('History cleared', 'success');
     }
   }
 
@@ -308,92 +288,6 @@ export class UIController {
   }
 
   /**
-   * Adds translation to history
-   * @param {string} input - Input text
-   * @param {string} output - Output text
-   * @param {string} mode - Translation mode
-   */
-  addToHistory(input, output, mode) {
-    const historyItem = {
-      id: Date.now(),
-      input,
-      output,
-      mode,
-      timestamp: new Date().toISOString()
-    };
-    
-    this.translationHistory.unshift(historyItem);
-    
-    // Keep only last 50 items
-    if (this.translationHistory.length > 50) {
-      this.translationHistory = this.translationHistory.slice(0, 50);
-    }
-    
-    this.saveHistory();
-    this.updateHistoryDisplay();
-  }
-
-  /**
-   * Updates history display
-   */
-  updateHistoryDisplay() {
-    this.elements.historyList.innerHTML = '';
-    
-    if (this.translationHistory.length === 0) {
-      const emptyItem = document.createElement('li');
-      emptyItem.className = 'history-item';
-      emptyItem.innerHTML = '<p>No translations yet. Start typing to see your history!</p>';
-      this.elements.historyList.appendChild(emptyItem);
-      return;
-    }
-    
-    this.translationHistory.forEach(item => {
-      const historyItem = document.createElement('li');
-      historyItem.className = 'history-item';
-      historyItem.innerHTML = `
-        <article class="history-content">
-          <section class="history-text">
-            <p class="history-input">${this.escapeHtml(item.input)}</p>
-            <p class="history-output">${this.escapeHtml(item.output)}</p>
-          </section>
-          <aside class="history-meta">
-            <time datetime="${item.timestamp}">${new Date(item.timestamp).toLocaleTimeString()}</time>
-          </aside>
-        </article>
-      `;
-      
-      // Add click handler to restore translation
-      historyItem.addEventListener('click', () => {
-        this.restoreFromHistory(item);
-      });
-      
-      this.elements.historyList.appendChild(historyItem);
-    });
-  }
-
-  /**
-   * Restores translation from history
-   * @param {object} item - History item
-   */
-  restoreFromHistory(item) {
-    // Set mode
-    const modeRadio = document.querySelector(`input[name="mode"][value="${item.mode}"]`);
-    if (modeRadio) {
-      modeRadio.checked = true;
-      this.handleModeChange();
-    }
-    
-    // Set input and output
-    this.elements.inputText.value = item.input;
-    this.elements.outputText.value = item.output;
-    
-    // Focus input
-    this.elements.inputText.focus();
-    
-    this.showNotification('Translation restored from history', 'success');
-  }
-
-  /**
    * Escapes HTML to prevent XSS
    * @param {string} text - Text to escape
    * @returns {string} Escaped text
@@ -405,35 +299,9 @@ export class UIController {
   }
 
   /**
-   * Loads translation history from localStorage
-   * @returns {Array} History array
-   */
-  loadHistory() {
-    try {
-      const saved = localStorage.getItem('emoji_translator_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-      console.error('Failed to load history:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Saves translation history to localStorage
-   */
-  saveHistory() {
-    try {
-      localStorage.setItem('emoji_translator_history', JSON.stringify(this.translationHistory));
-    } catch (error) {
-      console.error('Failed to save history:', error);
-    }
-  }
-
-  /**
    * Updates UI based on current state
    */
   updateUI() {
-    this.updateHistoryDisplay();
     
     // Check Gemini service status
     const status = this.aiService.getStatus();

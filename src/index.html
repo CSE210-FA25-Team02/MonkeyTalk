@@ -3,88 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Translate between natural language text and emoji expressions using AI technology">
-    <title>Emoji Speak Translator</title>
+    <meta name="description" content="Monkey Talk — Translate between natural language and emoji expressions with a fun money monkey twist">
+    <title>🐒 Monkey Talk 💰</title>
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components/translator.css">
 </head>
 <body>
-    <header>
-        <h1>Monkey Talk</h1>
-        <p>Transform your words into emoji expressions and back again</p>
+    <header class="monkey-header">
+        <h1>🐒 Monkey Talk 💬</h1>
+        <p>Turn your words into <strong>emoji gold coins</strong> and <strong>banana expressions</strong> 🍌💰</p>
     </header>
 
     <main>
         <section class="translation-controls">
             <fieldset>
-                <legend>Translation Mode</legend>
-                <label>
-                    <input type="radio" name="mode" value="text-to-emoji" checked>
-                    <span>Text to Emoji</span>
-                </label>
-                <label>
-                    <input type="radio" name="mode" value="emoji-to-text">
-                    <span>Emoji to Text</span>
-                </label>
+                <legend>🎯 Select Mode</legend>
+                <nav>
+                    <label>
+                        <input type="radio" name="mode" value="text-to-emoji" checked>
+                        <span>Text ➡ Emoji 🍌</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="mode" value="emoji-to-text">
+                        <span>Emoji ➡ Text 💬</span>
+                    </label>
+                </nav>
             </fieldset>
         </section>
 
         <section class="translation-area">
             <article class="input-section">
-                <label for="input-text">Enter your text:</label>
+                <label for="input-text">💭 Enter your message:</label>
                 <textarea 
                     id="input-text" 
-                    placeholder="Type your message here..."
+                    placeholder="Type something... let the monkeys work their magic 🐒✨"
                     rows="4"
                     aria-describedby="input-help"
                 ></textarea>
-                <small id="input-help">Type your text and click translate to convert it</small>
-                <button id="translate-button" type="button" aria-label="Translate text">
-                    🔄 Translate
-                </button>
+                <small id="input-help">The jungle is ready. Hit translate when you're done.</small>
             </article>
 
             <article class="output-section">
-                <label for="output-text">Translation:</label>
+                <label for="output-text">🍌 Monkey Output:</label>
                 <textarea 
                     id="output-text" 
                     readonly 
                     rows="4"
                     aria-describedby="output-help"
                 ></textarea>
-                <small id="output-help">Your translation will appear here</small>
+                <small id="output-help">Your banana-fied translation will drop here 🍌</small>
                 <button id="copy-button" type="button" aria-label="Copy translation to clipboard">
-                    📋 Copy
+                    📋 Copy to stash
                 </button>
             </article>
         </section>
 
-        <section class="translation-history">
-            <h2>Recent Translations</h2>
-            <ul id="history-list" role="list">
-                <!-- History items will be added dynamically -->
-            </ul>
-            <button id="clear-history" type="button">Clear History</button>
-        </section>
-
-        <section class="help-section">
-            <details>
-                <summary>How to use the translator</summary>
-                <ul>
-                    <li><strong>Text to Emoji:</strong> Type natural language like "I'm happy today" to get emoji expressions like "😊✨"</li>
-                    <li><strong>Emoji to Text:</strong> Type emoji sequences like "🎉🎂🎁" to get readable text like "celebration with cake and gift"</li>
-                    <li><strong>Manual Translation:</strong> Click the "🔄 Translate" button to convert your text</li>
-                    <li><strong>Copy:</strong> Click the copy button to copy translations to your clipboard</li>
-                    <li><strong>History:</strong> Your recent translations are saved for easy access</li>
-                    <li><strong>Powered by Google Gemini:</strong> Uses advanced AI for accurate emoji translations</li>
-                </ul>
-            </details>
-        </section>
+        <button id="translate-button" type="button" aria-label="Translate text">
+            🔄 Let the monkeys translate
+        </button>
     </main>
 
     <footer>
-        <p>&copy; 2025 Emoji Speak Translator. Built with vanilla web technologies.</p>
+        <p>© 2025 Monkey Emoji Translator — Built with 🍌 and 💰</p>
     </footer>
 
     <script type="module" src="js/main.js"></script>
