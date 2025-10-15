@@ -46,8 +46,8 @@ export class UIController {
       textAlign: 'center',
       display: 'none',
       zIndex: '1000',
-      width: '100%',
-      height: '100%',
+      minWidth: '100vw',
+      minHeight: '100vh',
       backgroundColor: 'rgba(255, 255, 255, 0.5)'
     });
     document.body.appendChild(this.elements.monkeyLoader);
