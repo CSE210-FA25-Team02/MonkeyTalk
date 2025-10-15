@@ -3,15 +3,14 @@
  * Handles DOM manipulation and user interactions
  */
 
-import { textToEmoji, emojiToText, containsEmojis, getTranslationStats } from './translator.js';
 import { createAIService } from './ai-service.js';
 import { buttonSound, monkeySound } from './sounds.js';
+import { startMoneyRain } from './dollar-rain.js';
 import { TeasingEngine } from './teasing-engine.js';
 
 export class UIController {
   constructor() {
     this.aiService = createAIService();
-    this.translationHistory = this.loadHistory();
     this.isTranslating = false;
     this.teasingEngine = new TeasingEngine();
     
@@ -30,10 +29,31 @@ export class UIController {
       outputText: document.getElementById('output-text'),
       translateButton: document.getElementById('translate-button'),
       copyButton: document.getElementById('copy-button'),
-      historyList: document.getElementById('history-list'),
-      clearHistoryButton: document.getElementById('clear-history'),
       helpSection: document.querySelector('.help-section')
     };
+    // Monkey loader
+    this.elements.monkeyLoader = document.createElement('main');
+    this.elements.monkeyLoader.className = 'monkey-loader';
+    this.elements.monkeyLoader.innerHTML = `
+      <img src="./assets/monkey.gif" style="
+        translate: -50% -50%;
+        position: absolute;
+        top: 50%; 
+        alt="Monkey loading" />
+    `;
+    Object.assign(this.elements.monkeyLoader.style, {
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      textAlign: 'center',
+      display: 'none',
+      zIndex: '1000',
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(255, 255, 255, 0.5)'
+    });
+    document.body.appendChild(this.elements.monkeyLoader);
   }
 
   /**
@@ -53,11 +73,6 @@ export class UIController {
     // Copy button event
     this.elements.copyButton.addEventListener('click', () => {
       this.handleCopyClick();
-    });
-
-    // Clear history event
-    this.elements.clearHistoryButton.addEventListener('click', () => {
-      this.handleClearHistory();
     });
 
     // Keyboard shortcuts
@@ -165,6 +180,16 @@ export class UIController {
       // Add to history
       this.addToHistory(text, translation, selectedMode);
 
+      // Hide monkey loader
+      this.setLoadingState(false);
+
+      // Trigger falling money effect (optimized for FPS)
+      startMoneyRain({
+        numBills: 150,
+        duration: 1000,
+        imageSize: 50,
+        imageUrl: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4b8.png'
+      });
       
     } catch (error) {
       console.error('Translation error:', error);
@@ -207,20 +232,6 @@ export class UIController {
   }
 
   /**
-   * Handles clear history button click
-   */
-  handleClearHistory() {
-    buttonSound.currentTime = 0;
-    buttonSound.play().catch(err => console.error(err));
-    if (confirm('Are you sure you want to clear all translation history?')) {
-      this.translationHistory = [];
-      this.saveHistory();
-      this.updateHistoryDisplay();
-      this.showNotification('History cleared', 'success');
-    }
-  }
-
-  /**
    * Handles keyboard shortcuts
    * @param {KeyboardEvent} e - Keyboard event
    */
@@ -250,17 +261,25 @@ export class UIController {
    */
   setLoadingState(isLoading) {
     this.isTranslating = isLoading;
-    
+
     if (isLoading) {
       this.elements.translateButton.disabled = true;
       this.elements.translateButton.textContent = '⏳ Translating...';
-      // Keep teasing message visible; do not override output text or add loading spinner
+      this.elements.outputText.classList.add('loading');
+      this.elements.outputText.value = 'Translating...';
+
+      // Show monkey loader
+      this.elements.monkeyLoader.style.display = 'block';
     } else {
       this.elements.translateButton.disabled = false;
-      this.elements.translateButton.textContent = '🔄 Translate';
-      // Do not modify output text here; result or teasing cleanup is handled elsewhere
+      this.elements.translateButton.textContent = '🔄 Let the monkeys translate';
+      this.elements.outputText.classList.remove('loading');
+
+      // Hide monkey loader
+      this.elements.monkeyLoader.style.display = 'none';
     }
   }
+
 
   /**
    * Shows notification to user
@@ -447,35 +466,9 @@ export class UIController {
   }
 
   /**
-   * Loads translation history from localStorage
-   * @returns {Array} History array
-   */
-  loadHistory() {
-    try {
-      const saved = localStorage.getItem('emoji_translator_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-      console.error('Failed to load history:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Saves translation history to localStorage
-   */
-  saveHistory() {
-    try {
-      localStorage.setItem('emoji_translator_history', JSON.stringify(this.translationHistory));
-    } catch (error) {
-      console.error('Failed to save history:', error);
-    }
-  }
-
-  /**
    * Updates UI based on current state
    */
   updateUI() {
-    this.updateHistoryDisplay();
     
     // Check Gemini service status
     const status = this.aiService.getStatus();

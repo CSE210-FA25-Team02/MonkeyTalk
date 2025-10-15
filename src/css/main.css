@@ -149,13 +149,14 @@ button:disabled {
 #translate-button {
   background-color: var(--accent-color);
   margin-top: var(--space-sm);
-  width: 100%;
+  display: flex;
+  margin: auto;
   justify-content: center;
   font-weight: 600;
 }
 
 #translate-button:hover {
-  background-color: var(--accent-hover);
+  transform: translate(0, var(--space-xs));
 }
 
 #translate-button:disabled {
@@ -174,6 +175,12 @@ button:disabled {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+nav {
+  display: flex;
+  min-width: 100%;
+  justify-content: center;
 }
 
 /* Responsive Design */
