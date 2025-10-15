@@ -4,7 +4,7 @@
  */
 
 // Google Gemini API Configuration
-export const GEMINI_API_KEY = 'AIzaSyD-VL2QNIR8pBd-oXv7o9dcETjFYD0vjlQ';
+export const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE'; // Replace with your actual API key
 
 // API Configuration
 export const API_CONFIG = {
