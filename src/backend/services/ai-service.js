@@ -164,6 +164,8 @@ export class AIService {
       throw new Error(`Response blocked by safety filters: ${candidate.finishReason}`);
     }
 
+    let result = "";
+
     if (candidate.content && candidate.content.parts && candidate.content.parts[0]) {
       result = candidate.content.parts[0].text;
     } else if (candidate.content && candidate.content.role === 'model') {
