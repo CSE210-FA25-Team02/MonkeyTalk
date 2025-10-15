@@ -141,7 +141,7 @@ export class UIController {
       
       this.setLoadingState(true);
 
-      const response = await fetch('http://localhost:3000/translate', {
+      const response = await fetch('https://emoji-translate.indresh.me/translate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
