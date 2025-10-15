@@ -25,6 +25,26 @@ export class TeasingEngine {
   }
 
   /**
+   * Build a pre-translation tease string from optional analysis
+   * Falls back to local random tease when analysis not provided
+   * @param {{shortTease?:string, tone?:string}} analysis
+   */
+  buildPreTease(analysis) {
+    if (analysis && analysis.shortTease) return analysis.shortTease;
+    return this.getPreTranslationTease();
+  }
+
+  /**
+   * Build a loading tease (post-teasing design you proposed)
+   * e.g., show "monkey energy" loading message
+   */
+  buildLoadingTease(mode) {
+    return mode === 'emoji-to-text'
+      ? '⚡ Monkey energy syncing with your emojis...'
+      : '⚡ Monkey energy syncing with your text...';
+  }
+
+  /**
    * Get a random pre-translation teaser
    * @returns {string} Teasing message
    */

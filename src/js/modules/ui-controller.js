@@ -114,7 +114,10 @@ export class UIController {
     const selectedMode = document.querySelector('input[name="mode"]:checked').value;
     
     try {
-      // PRE-TRANSLATION: Show teasing message and keep it until result
+      // Determine mode
+      const mode = selectedMode;
+
+      // PRE-TRANSLATION: Pure random tease (no LLM)
       const preTeaseMessage = this.teasingEngine.getPreTranslationTease();
       this.elements.outputText.value = preTeaseMessage;
       this.elements.outputText.classList.add('teasing-pre');
@@ -125,30 +128,39 @@ export class UIController {
       await this.teasingEngine.delay(1200);
       
       this.setLoadingState(true);
-      
-      let translation;
-      
-      if (this.aiService.getStatus().available) {
-        // Use Gemini service
-        if (selectedMode === 'text-to-emoji') {
-          translation = await this.aiService.translateTextToEmoji(text);
-        } else {
-          translation = await this.aiService.translateEmojiToText(text);
+
+      // Kick off translation and post-teasing analysis in parallel
+      const translationPromise = (async () => {
+        if (this.aiService.getStatus().available) {
+          if (selectedMode === 'text-to-emoji') {
+            return await this.aiService.translateTextToEmoji(text);
+          } else {
+            return await this.aiService.translateEmojiToText(text);
+          }
         }
-      } else {
         throw new Error('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.');
-      }
+      })();
+
+      const postTeasePromise = (typeof this.aiService.getTeasingAnalysis === 'function'
+        ? this.aiService.getTeasingAnalysis(text, mode)
+        : Promise.resolve(null))
+        .catch(() => null);
+
+      // Await translation first to show result ASAP
+      const translation = await translationPromise;
 
       // Show result and then remove teasing style
       this.elements.outputText.value = translation;
       this.elements.outputText.classList.remove('teasing-pre');
       
 
-      // TODO: We can impl contentg based teasing
-      // POST-TRANSLATION: Show reaction after a brief delay
-      await this.teasingEngine.delay(500);
-      const reactionMessage = this.teasingEngine.getPostTranslationReaction();
-      this.showTeasingNotification(reactionMessage);
+      // POST-TEASING: Prefer LLM banner; fallback to monkey-energy loading tease
+      const analysisResult = await postTeasePromise;
+      const banner = analysisResult && analysisResult.shortTease
+        ? analysisResult.shortTease
+        : this.teasingEngine.buildLoadingTease(mode);
+      await this.teasingEngine.delay(300);
+      this.showTeasingNotification(banner);
       
       // Add to history
       this.addToHistory(text, translation, selectedMode);

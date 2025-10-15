@@ -124,3 +124,23 @@ Now, process the following input:
 `;
 
 export default inContextLearningPrompt;
+
+/**
+ * Builds a lightweight analysis prompt used for teasing UX.
+ * Returns instructions for the model to output compact JSON only.
+ * @param {string} input - user input
+ * @param {string} mode - 'text-to-emoji' | 'emoji-to-text'
+ */
+export function buildTeasingAnalysisPrompt(input, mode) {
+  return [
+    'You are assisting an emoji translator UI. Analyze the user input and return ONLY compact JSON.',
+    'Schema: {"valid":boolean,"category":string,"tone":string,"shortTease":string,"reason"?:string}',
+    'Rules:',
+    '- shortTease <= 60 chars, playful, no quotes, no code blocks',
+    '- category: one of general, romantic, work, funny, sad, entertainment, food, travel',
+    '- tone: one of neutral, playful, cheeky, warm',
+    '- valid=false if the content is empty, unsafe, or clearly not translatable',
+    `Mode: ${mode}`,
+    `Input: ${input}`
+  ].join('\n');
+}
