@@ -1,4 +1,4 @@
-## Emoji Generator Design
+## Emoji Generator Plan
 
 - There are a lot of free API, Gemini etc.
     - Can add whatever context we want (i.e. “translate in genz slang,” “explain like i’m 5”, etc.) in the prompt that we send over to gemini API

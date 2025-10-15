@@ -3,7 +3,7 @@
  * Handles API calls to external translation services
  */
 
-import inContextLearningPrompt from './iclprompt.js';
+import inContextLearningPrompt, { buildTeasingAnalysisPrompt } from './iclprompt.js';
 import { GEMINI_API_KEY, API_CONFIG } from '../constants.js';
 
 // Configuration for Gemini service only
@@ -219,6 +219,51 @@ export class AIService {
     const trimmedResult = result.trim();
     console.log('Extracted result:', trimmedResult);
     return trimmedResult;
+  }
+
+  /**
+   * Gets lightweight teasing analysis for input to drive teasing UX
+   * Returns a small JSON object with fields used by the UI.
+   * Never throws; on errors it returns a safe fallback object.
+   * @param {string} input - user input
+   * @param {string} mode - 'text-to-emoji' | 'emoji-to-text'
+   * @returns {Promise<{valid:boolean, category:string, tone:string, shortTease:string, reason?:string}>}
+   */
+  async getTeasingAnalysis(input, mode) {
+    if (!this.isAvailable) {
+      return { valid: true, category: 'general', tone: 'neutral', shortTease: this.defaultTeaseForMode(mode) };
+    }
+
+    const analysisPrompt = buildTeasingAnalysisPrompt(input, mode);
+
+    try {
+      const raw = await this.callAI(analysisPrompt);
+      // Try to parse JSON from the model response; fall back on defaults
+      const jsonStart = raw.indexOf('{');
+      const jsonEnd = raw.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
+        // Basic normalization
+        return {
+          valid: typeof parsed.valid === 'boolean' ? parsed.valid : true,
+          category: parsed.category || 'general',
+          tone: parsed.tone || 'neutral',
+          shortTease: parsed.shortTease || this.defaultTeaseForMode(mode),
+          reason: parsed.reason
+        };
+      }
+    } catch (e) {
+      // Swallow errors, UI will use defaults
+    }
+    return { valid: true, category: 'general', tone: 'neutral', shortTease: this.defaultTeaseForMode(mode) };
+  }
+
+  /**
+   * Default tease used when analysis isn't available
+   */
+  defaultTeaseForMode(mode) {
+    if (mode === 'emoji-to-text') return '🐒 Charging monkey energy to read emojis...';
+    return '🐒 Charging monkey energy to craft emojis...';
   }
 
 

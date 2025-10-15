@@ -6,12 +6,13 @@
 import { createAIService } from './ai-service.js';
 import { buttonSound, monkeySound } from './sounds.js';
 import { startMoneyRain } from './dollar-rain.js';
-
+import { TeasingEngine } from './teasing-engine.js';
 
 export class UIController {
   constructor() {
     this.aiService = createAIService();
     this.isTranslating = false;
+    this.teasingEngine = new TeasingEngine();
     
     this.initializeElements();
     this.bindEvents();
@@ -116,7 +117,7 @@ export class UIController {
   }
 
   /**
-   * Translates text using AI service or fallback
+   * Translates text using AI service with teasing elements
    * @param {string} text - Text to translate
    */
   async translateText(text) {
@@ -128,22 +129,56 @@ export class UIController {
     const selectedMode = document.querySelector('input[name="mode"]:checked').value;
     
     try {
-      this.setLoadingState(true);
-      
-      let translation;
-      
-      if (this.aiService.getStatus().available) {
-        // Use Gemini service
-        if (selectedMode === 'text-to-emoji') {
-          translation = await this.aiService.translateTextToEmoji(text);
-        } else {
-          translation = await this.aiService.translateEmojiToText(text);
-        }
-      } else {
-        throw new Error('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.');
-      }
+      // Determine mode
+      const mode = selectedMode;
 
+      // PRE-TRANSLATION: Pure random tease (no LLM)
+      const preTeaseMessage = this.teasingEngine.getPreTranslationTease();
+      this.elements.outputText.value = preTeaseMessage;
+      this.elements.outputText.classList.add('teasing-pre');
+      
+      // Wait a bit to show the tease
+      // TODO: Make this delay to be actually waiting for the gemini to do the translation?
+      // TODO: if we want to do content based teasing, we need to call gemini here separately and then show the teasing message based on the content.
+      await this.teasingEngine.delay(1200);
+      
+      this.setLoadingState(true);
+
+      // Kick off translation and post-teasing analysis in parallel
+      const translationPromise = (async () => {
+        if (this.aiService.getStatus().available) {
+          if (selectedMode === 'text-to-emoji') {
+            return await this.aiService.translateTextToEmoji(text);
+          } else {
+            return await this.aiService.translateEmojiToText(text);
+          }
+        }
+        throw new Error('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.');
+      })();
+
+      const postTeasePromise = (typeof this.aiService.getTeasingAnalysis === 'function'
+        ? this.aiService.getTeasingAnalysis(text, mode)
+        : Promise.resolve(null))
+        .catch(() => null);
+
+      // Await translation first to show result ASAP
+      const translation = await translationPromise;
+
+      // Show result and then remove teasing style
       this.elements.outputText.value = translation;
+      this.elements.outputText.classList.remove('teasing-pre');
+      
+
+      // POST-TEASING: Prefer LLM banner; fallback to monkey-energy loading tease
+      const analysisResult = await postTeasePromise;
+      const banner = analysisResult && analysisResult.shortTease
+        ? analysisResult.shortTease
+        : this.teasingEngine.buildLoadingTease(mode);
+      await this.teasingEngine.delay(300);
+      this.showTeasingNotification(banner);
+      
+      // Add to history
+      this.addToHistory(text, translation, selectedMode);
 
       // Hide monkey loader
       this.setLoadingState(false);
@@ -158,6 +193,7 @@ export class UIController {
       
     } catch (error) {
       console.error('Translation error:', error);
+      this.elements.outputText.classList.remove('teasing-pre');
       this.elements.outputText.value = 'Translation failed. Please check your API key configuration.';
     } finally {
       monkeySound.currentTime = 0;
@@ -285,6 +321,137 @@ export class UIController {
         document.body.removeChild(notification);
       }, 300);
     }, 3000);
+  }
+
+  /**
+   * Shows teasing notification with special styling
+   * @param {string} message - Teasing message
+   */
+  showTeasingNotification(message) {
+    const notification = document.createElement('aside');
+    notification.className = 'teasing-notification';
+    notification.textContent = message;
+    
+    // Special styling for teasing notifications
+    Object.assign(notification.style, {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      padding: '12px 20px',
+      borderRadius: '12px',
+      color: 'white',
+      fontWeight: '600',
+      fontSize: '14px',
+      zIndex: '1000',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+      transform: 'translateX(100%) scale(0.8)',
+      transition: 'all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+      maxWidth: '300px'
+    });
+    
+    document.body.appendChild(notification);
+    
+    // Animate in with bounce effect
+    setTimeout(() => {
+      notification.style.transform = 'translateX(0) scale(1)';
+    }, 100);
+    
+    // Remove after 4 seconds (longer for teasing messages)
+    setTimeout(() => {
+      notification.style.transform = 'translateX(100%) scale(0.8)';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          document.body.removeChild(notification);
+        }
+      }, 400);
+    }, 4000);
+  }
+
+  /**
+   * Adds translation to history
+   * @param {string} input - Input text
+   * @param {string} output - Output text
+   * @param {string} mode - Translation mode
+   */
+  addToHistory(input, output, mode) {
+    const historyItem = {
+      id: Date.now(),
+      input,
+      output,
+      mode,
+      timestamp: new Date().toISOString()
+    };
+    
+    this.translationHistory.unshift(historyItem);
+    
+    // Keep only last 50 items
+    if (this.translationHistory.length > 50) {
+      this.translationHistory = this.translationHistory.slice(0, 50);
+    }
+    
+    this.saveHistory();
+    this.updateHistoryDisplay();
+  }
+
+  /**
+   * Updates history display
+   */
+  updateHistoryDisplay() {
+    this.elements.historyList.innerHTML = '';
+    
+    if (this.translationHistory.length === 0) {
+      const emptyItem = document.createElement('li');
+      emptyItem.className = 'history-item';
+      emptyItem.innerHTML = '<p>No translations yet. Start typing to see your history!</p>';
+      this.elements.historyList.appendChild(emptyItem);
+      return;
+    }
+    
+    this.translationHistory.forEach(item => {
+      const historyItem = document.createElement('li');
+      historyItem.className = 'history-item';
+      historyItem.innerHTML = `
+        <article class="history-content">
+          <section class="history-text">
+            <p class="history-input">${this.escapeHtml(item.input)}</p>
+            <p class="history-output">${this.escapeHtml(item.output)}</p>
+          </section>
+          <aside class="history-meta">
+            <time datetime="${item.timestamp}">${new Date(item.timestamp).toLocaleTimeString()}</time>
+          </aside>
+        </article>
+      `;
+      
+      // Add click handler to restore translation
+      historyItem.addEventListener('click', () => {
+        this.restoreFromHistory(item);
+      });
+      
+      this.elements.historyList.appendChild(historyItem);
+    });
+  }
+
+  /**
+   * Restores translation from history
+   * @param {object} item - History item
+   */
+  restoreFromHistory(item) {
+    // Set mode
+    const modeRadio = document.querySelector(`input[name="mode"][value="${item.mode}"]`);
+    if (modeRadio) {
+      modeRadio.checked = true;
+      this.handleModeChange();
+    }
+    
+    // Set input and output
+    this.elements.inputText.value = item.input;
+    this.elements.outputText.value = item.output;
+    
+    // Focus input
+    this.elements.inputText.focus();
+    
+    this.showNotification('Translation restored from history', 'success');
   }
 
   /**
