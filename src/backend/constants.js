@@ -12,9 +12,9 @@ export const GEMINI_API_KEYS = process.env.GEMINI_API_KEYS ? process.env.GEMINI_
 
 // API Configuration
 export const API_CONFIG = {
-  GEMINI_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
-  GEMINI_MODEL: 'gemini-pro',
-  MAX_TOKENS: 1000,
+  GEMINI_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+  GEMINI_MODEL: 'gemini-2.5-flash',
+  MAX_TOKENS: 10000,
   TEMPERATURE: 0.7,
   TOP_P: 0.8,
   TOP_K: 10
