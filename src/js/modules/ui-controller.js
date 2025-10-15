@@ -151,7 +151,7 @@ export class UIController {
       // Trigger falling money effect (optimized for FPS)
       startMoneyRain({
         numBills: 150,
-        duration: 3000,
+        duration: 1000,
         imageSize: 50,
         imageUrl: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4b8.png'
       });
@@ -236,7 +236,7 @@ export class UIController {
       this.elements.monkeyLoader.style.display = 'block';
     } else {
       this.elements.translateButton.disabled = false;
-      this.elements.translateButton.textContent = '🔄 Translate';
+      this.elements.translateButton.textContent = '🔄 Let the monkeys translate';
       this.elements.outputText.classList.remove('loading');
 
       // Hide monkey loader

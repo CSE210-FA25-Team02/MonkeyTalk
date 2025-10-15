@@ -11,8 +11,6 @@
   --bg-primary: #ffffff;
   --bg-secondary: #fafafa;
   --bg-tertiary: #fdf7e3; /* Soft banana tint */
-  --bg-jungle-pattern: url("assets/jungle-leaf.png"); /* subtle leaf texture */
-  --bg-banana-overlay: url("assets/banana-pattern.png"); /* tiny banana icons, light opacity */
 
   /* Text Colors - Cheerful but Readable */
   --text-primary: #2d3436;
@@ -70,15 +68,6 @@
   --z-modal: 1040;
 }
 
-/* GLOBAL BACKGROUND APPLY */
-body {
-  background: 
-    var(--bg-tertiary) 
-    var(--bg-jungle-pattern) repeat,
-    var(--bg-banana-overlay) repeat;
-  background-size: 300px, 200px; /* first is leaves, second is bananas */
-}
-
 /* Dark Theme - Money Heist Neon Jungle */
 @media (prefers-color-scheme: dark) {
   :root {
@@ -96,14 +85,5 @@ body {
 
     --primary-color: #27ae60; /* Rich Money Green Glow */
     --accent-color: #f1c40f; /* Neon Banana Yellow */
-  }
-
-  body {
-    background: 
-      var(--bg-secondary) 
-      var(--bg-jungle-pattern) repeat,
-      var(--bg-banana-overlay) repeat;
-    background-blend-mode: soft-light;
-    filter: brightness(0.95);
   }
 }

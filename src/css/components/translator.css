@@ -135,10 +135,6 @@
   transition: all var(--transition-normal);
 }
 
-.history-item {
-  animation: slideIn 0.3s ease-out;
-}
-
 @keyframes slideIn {
   from {
     opacity: 0;

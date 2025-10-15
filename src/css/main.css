@@ -156,7 +156,7 @@ button:disabled {
 }
 
 #translate-button:hover {
-  background-color: var(--accent-hover);
+  transform: translate(0, var(--space-xs));
 }
 
 #translate-button:disabled {
