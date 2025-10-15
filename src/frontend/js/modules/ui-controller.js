@@ -3,19 +3,16 @@
  * Handles DOM manipulation and user interactions
  */
 
-import { createAIService } from './ai-service.js';
 import { buttonSound, monkeySound } from './sounds.js';
 import { startMoneyRain } from './dollar-rain.js';
 
 
 export class UIController {
   constructor() {
-    this.aiService = createAIService();
     this.isTranslating = false;
     
     this.initializeElements();
     this.bindEvents();
-    this.updateUI();
   }
 
   /**
@@ -130,18 +127,20 @@ export class UIController {
     try {
       this.setLoadingState(true);
       
-      let translation;
-      
-      if (this.aiService.getStatus().available) {
-        // Use Gemini service
-        if (selectedMode === 'text-to-emoji') {
-          translation = await this.aiService.translateTextToEmoji(text);
-        } else {
-          translation = await this.aiService.translateEmojiToText(text);
-        }
-      } else {
-        throw new Error('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.');
+      const response = await fetch('https://emoji-translate.indresh.me/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text, mode: selectedMode })
+      });
+
+      if (!response.ok) {
+        throw new Error('Translation request failed');
       }
+
+      const data = await response.json();
+      const translation = data.translation;
 
       this.elements.outputText.value = translation;
 
@@ -296,34 +295,5 @@ export class UIController {
     const span = document.createElement('span');
     span.textContent = text;
     return span.innerHTML;
-  }
-
-  /**
-   * Updates UI based on current state
-   */
-  updateUI() {
-    
-    // Check Gemini service status
-    const status = this.aiService.getStatus();
-    if (!status.available) {
-      this.showNotification('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.', 'error');
-    }
-  }
-
-  /**
-   * Sets AI service API key
-   * @param {string} apiKey - API key
-   */
-  setApiKey(apiKey) {
-    this.aiService.setApiKey(apiKey);
-    this.showNotification('API key configured successfully!', 'success');
-  }
-
-  /**
-   * Gets current AI service status
-   * @returns {object} Service status
-   */
-  getServiceStatus() {
-    return this.aiService.getStatus();
   }
 }

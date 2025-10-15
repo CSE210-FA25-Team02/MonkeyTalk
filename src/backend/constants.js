@@ -1,16 +1,20 @@
+
+import dotenv from 'dotenv';
+dotenv.config();
+
 /**
  * Application Constants
  * Contains configuration values and API keys
  */
 
 // Google Gemini API Configuration
-export const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE'; // Replace with your actual API key
+export const GEMINI_API_KEYS = process.env.GEMINI_API_KEYS ? process.env.GEMINI_API_KEYS.split(',') : [];
 
 // API Configuration
 export const API_CONFIG = {
-  GEMINI_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-  GEMINI_MODEL: 'gemini-2.5-flash',
-  MAX_TOKENS: 10000,
+  GEMINI_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+  GEMINI_MODEL: 'gemini-pro',
+  MAX_TOKENS: 1000,
   TEMPERATURE: 0.7,
   TOP_P: 0.8,
   TOP_K: 10

@@ -4,7 +4,7 @@
  */
 
 import inContextLearningPrompt from './iclprompt.js';
-import { GEMINI_API_KEY, API_CONFIG } from '../constants.js';
+import { GEMINI_API_KEYS, API_CONFIG } from '../constants.js';
 
 // Configuration for Gemini service only
 const AI_SERVICES = {
@@ -23,30 +23,19 @@ export class AIService {
   constructor() {
     this.serviceName = 'gemini';
     this.service = AI_SERVICES.gemini;
-    this.apiKey = this.getApiKey();
-    this.isAvailable = this.checkAvailability();
+    this.apiKeys = GEMINI_API_KEYS;
+    this.currentApiKeyIndex = 0;
+    this.isAvailable = this.apiKeys.length > 0 && this.apiKeys[0] !== 'YOUR_GEMINI_API_KEY_HERE';
   }
 
   /**
-   * Gets API key from constants file
-   * @returns {string|null} API key
+   * Gets the next API key in a round-robin fashion.
+   * @returns {string} The next API key.
    */
-  getApiKey() {
-    // Check if API key is set in constants
-    if (GEMINI_API_KEY && GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY_HERE') {
-      return GEMINI_API_KEY;
-    }
-    
-    // Fallback to localStorage for development
-    return localStorage.getItem('gemini_api_key') || null;
-  }
-
-  /**
-   * Checks if the Gemini service is available
-   * @returns {boolean} Service availability
-   */
-  checkAvailability() {
-    return this.apiKey !== null;
+  getNextApiKey() {
+    const key = this.apiKeys[this.currentApiKeyIndex];
+    this.currentApiKeyIndex = (this.currentApiKeyIndex + 1) % this.apiKeys.length;
+    return key;
   }
 
   /**
@@ -99,7 +88,26 @@ export class AIService {
    * @returns {Promise<string>} AI response
    */
   async callAI(prompt) {
-    return await this.callGemini(prompt);
+    return await this.callWithRetry(() => this.callGemini(prompt));
+  }
+
+  /**
+   * Calls a function with retry logic.
+   * @param {Function} fn - The function to call.
+   * @param {number} retries - The number of retries.
+   * @param {number} delay - The delay between retries.
+   * @returns {Promise<any>} The result of the function.
+   */
+  async callWithRetry(fn, retries = 2, delay = 1000) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (retries > 1) {
+        await new Promise(res => setTimeout(res, delay));
+        return this.callWithRetry(fn, retries - 1, delay);
+      }
+      throw error;
+    }
   }
 
 
@@ -109,15 +117,9 @@ export class AIService {
    * @returns {Promise<string>} AI response
    */
   async callGemini(prompt) {
-    console.log('Calling Gemini API with prompt:', prompt);
-    console.log('API Key (first 10 chars):', this.apiKey ? this.apiKey.substring(0, 10) + '...' : 'No API key');
-    console.log('Endpoint:', this.service.endpoint);
-    
-    // Validate API key exists
-    if (!this.apiKey) {
-      throw new Error('No Gemini API key provided');
-    }
-    
+    const apiKey = this.getNextApiKey();
+    const endpoint = `${this.service.endpoint}?key=${apiKey}`;
+
     const requestBody = {
       contents: [
         {
@@ -136,9 +138,7 @@ export class AIService {
       }
     };
 
-    console.log('Request body:', JSON.stringify(requestBody, null, 2));
-
-    const response = await fetch(`${this.service.endpoint}?key=${this.apiKey}`, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -146,79 +146,28 @@ export class AIService {
       body: JSON.stringify(requestBody)
     });
 
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
     if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}`;
-      try {
-        const errorData = await response.json();
-        console.error('Error response:', errorData);
-        errorMessage += ` - ${errorData.error?.message || errorData.message || 'Unknown error'}`;
-      } catch (e) {
-        const errorText = await response.text();
-        console.error('Error text:', errorText);
-        errorMessage += ` - ${errorText}`;
-      }
-      throw new Error(`Gemini API error: ${errorMessage}`);
+      const errorText = await response.text();
+      throw new Error(`Gemini API error: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('Response data:', data);
-    
-    // Check for different possible response structures
+
     if (!data.candidates || !data.candidates[0]) {
-      console.error('No candidates found in response:', data);
       throw new Error('No candidates in Gemini API response');
     }
 
     const candidate = data.candidates[0];
-    console.log('First candidate:', candidate);
-    
-    // Check if the response was blocked or filtered
+
     if (candidate.finishReason === 'SAFETY' || candidate.finishReason === 'RECITATION') {
       throw new Error(`Response blocked by safety filters: ${candidate.finishReason}`);
     }
-    
-    // Check for content in different possible structures
-    let result = null;
-    
-    // Handle the actual Gemini response structure
+
     if (candidate.content && candidate.content.parts && candidate.content.parts[0]) {
-      result = candidate.content.parts[0].text;
-    } else if (candidate.content && candidate.content.role === 'model') {
-      // This is the structure we're seeing: {"content":{"role":"model"},"finishReason":"MAX_TOKENS"}
-      // The content might be in a different field or the response was truncated
-      console.log('Found model role content, checking for text in other fields...');
-      
-      // Check if there's text in the candidate itself
-      if (candidate.text) {
-        result = candidate.text;
-      } else if (candidate.output) {
-        result = candidate.output;
-      } else {
-        // If finishReason is MAX_TOKENS, the response was cut off
-        if (candidate.finishReason === 'MAX_TOKENS') {
-          throw new Error('Response was truncated due to token limit. Try reducing the prompt length or increasing maxOutputTokens.');
-        }
-        throw new Error(`Content found but no text extracted. Candidate: ${JSON.stringify(candidate)}`);
-      }
-    } else if (candidate.text) {
-      result = candidate.text;
-    } else if (candidate.output) {
-      result = candidate.output;
-    } else {
-      console.error('Unexpected response structure:', candidate);
-      throw new Error(`Invalid response format from Gemini API. Candidate structure: ${JSON.stringify(candidate)}`);
+      return candidate.content.parts[0].text.trim();
     }
 
-    if (!result) {
-      throw new Error('No text content found in Gemini API response');
-    }
-
-    const trimmedResult = result.trim();
-    console.log('Extracted result:', trimmedResult);
-    return trimmedResult;
+    throw new Error('No text content found in Gemini API response');
   }
 
 
@@ -257,16 +206,6 @@ export class AIService {
   }
 
   /**
-   * Sets API key for the service
-   * @param {string} key - API key
-   */
-  setApiKey(key) {
-    this.apiKey = key;
-    localStorage.setItem('gemini_api_key', key);
-    this.isAvailable = this.checkAvailability();
-  }
-
-  /**
    * Gets service status
    * @returns {object} Service status information
    */
@@ -274,7 +213,7 @@ export class AIService {
     return {
       service: 'gemini',
       available: this.isAvailable,
-      hasApiKey: this.apiKey !== null
+      hasApiKey: this.apiKeys.length > 0
     };
   }
 }
