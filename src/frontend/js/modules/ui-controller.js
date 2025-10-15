@@ -157,7 +157,7 @@ export class UIController {
       const translation = data.translation;
 
 
-      const postTeasePromise = fetch('http://localhost:3000/teasing-analysis', {
+      const postTeasePromise = fetch('https://emoji-translate.indresh.me/teasing-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
