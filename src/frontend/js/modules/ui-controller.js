@@ -78,12 +78,23 @@ export class UIController {
     });
   }
 
+  playButtonClick() {
+    buttonSound.currentTime = 0;
+    buttonSound.play().catch(err => console.error(err));
+  }
+
+  playMonkeySound() {
+    monkeySound.currentTime = 0;
+    monkeySound.play();
+  }
+
   /**
    * Handles mode change between text-to-emoji and emoji-to-text
    */
   handleModeChange() {
-    buttonSound.currentTime = 0;
-    buttonSound.play().catch(err => console.error(err));
+    // Play Button Sound
+    this.playButtonClick();
+
     const selectedMode = document.querySelector('input[name="mode"]:checked').value;
     
     // Update placeholder text
@@ -103,8 +114,9 @@ export class UIController {
    * Handles translate button click
    */
   handleTranslateClick() {
-    buttonSound.currentTime = 0;
-    buttonSound.play().catch(err => console.error(err));
+    // Play Button Sound
+    this.playButtonClick();
+
     const text = this.elements.inputText.value.trim();
     if (!text) {
       this.showNotification('Please enter some text to translate', 'error');
@@ -191,13 +203,14 @@ export class UIController {
         imageUrl: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4b8.png'
       });
       
+      //Play Monkey Applause When Translation Finishes
+      this.playMonkeySound();
+
     } catch (error) {
       console.error('Translation error:', error);
       this.elements.outputText.classList.remove('teasing-pre');
       this.elements.outputText.value = 'Translation failed. Please check your API key configuration.';
     } finally {
-      monkeySound.currentTime = 0;
-      monkeySound.play();
       this.setLoadingState(false);
     }
   }
@@ -206,8 +219,9 @@ export class UIController {
    * Handles copy button click
    */
   async handleCopyClick() {
-    buttonSound.currentTime = 0;
-    buttonSound.play().catch(err => console.error(err));
+    // Play Button Sound
+    this.playButtonClick();
+
     const text = this.elements.outputText.value;
     
     if (!text) {
@@ -330,36 +344,42 @@ export class UIController {
   showTeasingNotification(message) {
     const notification = document.createElement('aside');
     notification.className = 'teasing-notification';
-    notification.textContent = message;
+    notification.innerHTML = `🍌 ${message}`;
     
     // Special styling for teasing notifications
-    Object.assign(notification.style, {
-      position: 'fixed',
-      top: '20px',
-      right: '20px',
-      padding: '12px 20px',
-      borderRadius: '12px',
-      color: 'white',
-      fontWeight: '600',
-      fontSize: '14px',
-      zIndex: '1000',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-      transform: 'translateX(100%) scale(0.8)',
-      transition: 'all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
-      maxWidth: '300px'
-    });
-    
+  Object.assign(notification.style, {
+    position: 'fixed',
+    top: '40px',
+    right: '30px',
+    padding: '20px 40px',
+    borderRadius: '70% 80% 60% 80% / 60% 90% 50% 80%',
+    transformOrigin: 'center bottom',
+    transform: 'rotate(-10deg) translateX(100%) scale(0.9)',
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: '15px',
+    zIndex: '1000',
+    textAlign: 'center',
+    letterSpacing: '0.5px',
+    border: '2px solid rgba(255,255,255,0.3)',
+    boxShadow: '0 0 25px rgba(255,255,255,0.6)',
+    background: 'linear-gradient(270deg, #ffcc33, #ff9966, #ff66cc, #6699ff, #33ff99, #ffff66)',
+    backgroundSize: '400% 400%',
+    animation: 'bananaRainbow 6s linear infinite, bananaSwing 2.8s ease-in-out infinite',
+    transition: 'all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+    maxWidth: '340px',
+    backdropFilter: 'blur(6px)'
+  });
     document.body.appendChild(notification);
     
     // Animate in with bounce effect
     setTimeout(() => {
-      notification.style.transform = 'translateX(0) scale(1)';
+      notification.style.transform = 'rotate(-10deg) translateX(0) scale(1)';
     }, 100);
-    
+      
     // Remove after 4 seconds (longer for teasing messages)
     setTimeout(() => {
-      notification.style.transform = 'translateX(100%) scale(0.8)';
+      notification.style.transform = 'rotate(-10deg) translateX(100%) scale(0.8)';
       setTimeout(() => {
         if (notification.parentNode) {
           document.body.removeChild(notification);
