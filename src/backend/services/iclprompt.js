@@ -133,14 +133,14 @@ export default inContextLearningPrompt;
  */
 export function buildTeasingAnalysisPrompt(input, mode) {
   return [
-    'You are assisting an emoji translator UI. Analyze the user input and return ONLY compact JSON.',
+    "You are assisting an emoji translator UI. Analyze the user input and return ONLY compact JSON.",
     'Schema: {"valid":boolean,"category":string,"tone":string,"shortTease":string,"reason"?:string}',
-    'Rules:',
-    '- shortTease <= 60 chars, playful, no quotes, no code blocks',
-    '- category: one of general, romantic, work, funny, sad, entertainment, food, travel',
-    '- tone: one of neutral, playful, cheeky, warm',
-    '- valid=false if the content is empty, unsafe, or clearly not translatable',
+    "Rules:",
+    "- shortTease <= 60 chars, playful, no quotes, no code blocks",
+    "- category: one of general, romantic, work, funny, sad, entertainment, food, travel",
+    "- tone: one of neutral, playful, cheeky, warm",
+    "- valid=false if the content is empty, unsafe, or clearly not translatable",
     `Mode: ${mode}`,
-    `Input: ${input}`
-  ].join('\n');
+    `Input: ${input}`,
+  ].join("\n");
 }

@@ -82,7 +82,7 @@ label {
   align-items: center;
   gap: var(--space-sm);
   cursor: pointer;
-  margin-right: var(--space-lg);
+  margin-inline: var(--space-lg);
 }
 
 input[type="radio"] {

@@ -3,20 +3,17 @@
  * Handles DOM manipulation and user interactions
  */
 
-import { createAIService } from './ai-service.js';
 import { buttonSound, monkeySound } from './sounds.js';
 import { startMoneyRain } from './dollar-rain.js';
 import { TeasingEngine } from './teasing-engine.js';
 
 export class UIController {
   constructor() {
-    this.aiService = createAIService();
     this.isTranslating = false;
     this.teasingEngine = new TeasingEngine();
     
     this.initializeElements();
     this.bindEvents();
-    this.updateUI();
   }
 
   /**
@@ -49,8 +46,8 @@ export class UIController {
       textAlign: 'center',
       display: 'none',
       zIndex: '1000',
-      width: '100%',
-      height: '100%',
+      minWidth: '100vw',
+      minHeight: '100vh',
       backgroundColor: 'rgba(255, 255, 255, 0.5)'
     });
     document.body.appendChild(this.elements.monkeyLoader);
@@ -156,25 +153,31 @@ export class UIController {
       
       this.setLoadingState(true);
 
-      // Kick off translation and post-teasing analysis in parallel
-      const translationPromise = (async () => {
-        if (this.aiService.getStatus().available) {
-          if (selectedMode === 'text-to-emoji') {
-            return await this.aiService.translateTextToEmoji(text);
-          } else {
-            return await this.aiService.translateEmojiToText(text);
-          }
-        }
-        throw new Error('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.');
-      })();
+      const response = await fetch('https://emoji-translate.indresh.me/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text, mode: selectedMode })
+      });
 
-      const postTeasePromise = (typeof this.aiService.getTeasingAnalysis === 'function'
-        ? this.aiService.getTeasingAnalysis(text, mode)
-        : Promise.resolve(null))
-        .catch(() => null);
+      if (!response.ok) {
+        throw new Error('Translation request failed');
+      }
 
-      // Await translation first to show result ASAP
-      const translation = await translationPromise;
+      const data = await response.json();
+      const translation = data.translation;
+
+
+      const postTeasePromise = fetch('https://emoji-translate.indresh.me/teasing-analysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ input: text, mode: mode })
+      })
+      .then(res => res.json())
+      .catch(() => null);
 
       // Show result and then remove teasing style
       this.elements.outputText.value = translation;
@@ -188,9 +191,6 @@ export class UIController {
         : this.teasingEngine.buildLoadingTease(mode);
       await this.teasingEngine.delay(300);
       this.showTeasingNotification(banner);
-      
-      // Add to history
-      this.addToHistory(text, translation, selectedMode);
 
       // Hide monkey loader
       this.setLoadingState(false);
@@ -389,92 +389,6 @@ export class UIController {
   }
 
   /**
-   * Adds translation to history
-   * @param {string} input - Input text
-   * @param {string} output - Output text
-   * @param {string} mode - Translation mode
-   */
-  addToHistory(input, output, mode) {
-    const historyItem = {
-      id: Date.now(),
-      input,
-      output,
-      mode,
-      timestamp: new Date().toISOString()
-    };
-    
-    this.translationHistory.unshift(historyItem);
-    
-    // Keep only last 50 items
-    if (this.translationHistory.length > 50) {
-      this.translationHistory = this.translationHistory.slice(0, 50);
-    }
-    
-    this.saveHistory();
-    this.updateHistoryDisplay();
-  }
-
-  /**
-   * Updates history display
-   */
-  updateHistoryDisplay() {
-    this.elements.historyList.innerHTML = '';
-    
-    if (this.translationHistory.length === 0) {
-      const emptyItem = document.createElement('li');
-      emptyItem.className = 'history-item';
-      emptyItem.innerHTML = '<p>No translations yet. Start typing to see your history!</p>';
-      this.elements.historyList.appendChild(emptyItem);
-      return;
-    }
-    
-    this.translationHistory.forEach(item => {
-      const historyItem = document.createElement('li');
-      historyItem.className = 'history-item';
-      historyItem.innerHTML = `
-        <article class="history-content">
-          <section class="history-text">
-            <p class="history-input">${this.escapeHtml(item.input)}</p>
-            <p class="history-output">${this.escapeHtml(item.output)}</p>
-          </section>
-          <aside class="history-meta">
-            <time datetime="${item.timestamp}">${new Date(item.timestamp).toLocaleTimeString()}</time>
-          </aside>
-        </article>
-      `;
-      
-      // Add click handler to restore translation
-      historyItem.addEventListener('click', () => {
-        this.restoreFromHistory(item);
-      });
-      
-      this.elements.historyList.appendChild(historyItem);
-    });
-  }
-
-  /**
-   * Restores translation from history
-   * @param {object} item - History item
-   */
-  restoreFromHistory(item) {
-    // Set mode
-    const modeRadio = document.querySelector(`input[name="mode"][value="${item.mode}"]`);
-    if (modeRadio) {
-      modeRadio.checked = true;
-      this.handleModeChange();
-    }
-    
-    // Set input and output
-    this.elements.inputText.value = item.input;
-    this.elements.outputText.value = item.output;
-    
-    // Focus input
-    this.elements.inputText.focus();
-    
-    this.showNotification('Translation restored from history', 'success');
-  }
-
-  /**
    * Escapes HTML to prevent XSS
    * @param {string} text - Text to escape
    * @returns {string} Escaped text
@@ -483,34 +397,5 @@ export class UIController {
     const span = document.createElement('span');
     span.textContent = text;
     return span.innerHTML;
-  }
-
-  /**
-   * Updates UI based on current state
-   */
-  updateUI() {
-    
-    // Check Gemini service status
-    const status = this.aiService.getStatus();
-    if (!status.available) {
-      this.showNotification('Gemini API key not configured. Please set GEMINI_API_KEY in constants.js file.', 'error');
-    }
-  }
-
-  /**
-   * Sets AI service API key
-   * @param {string} apiKey - API key
-   */
-  setApiKey(apiKey) {
-    this.aiService.setApiKey(apiKey);
-    this.showNotification('API key configured successfully!', 'success');
-  }
-
-  /**
-   * Gets current AI service status
-   * @returns {object} Service status
-   */
-  getServiceStatus() {
-    return this.aiService.getStatus();
   }
 }
